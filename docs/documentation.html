@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>pyflowviz — Documentation</title>
+<title>pystepflow — Documentation</title>
 <style>
   @page { size: A4; margin: 18mm 16mm; }
 
@@ -155,11 +155,11 @@
 <body>
 
 <div class="cover">
-  <h1>pyflowviz</h1>
+  <h1>pystepflow</h1>
   <p class="lede">Step through Python code in your browser: call stack, variables,
      heap objects, and a live flow graph.</p>
   <p class="meta">Version 1.0.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
-     &nbsp;·&nbsp; github.com/2001-Ankit/pyflowviz</p>
+     &nbsp;·&nbsp; github.com/2001-Ankit/pystepflow</p>
 </div>
 
 <section>
@@ -189,7 +189,7 @@
 <section>
 <h2>1. What it is</h2>
 
-<p>pyflowviz runs a Python program under a tracer and records a complete snapshot
+<p>pystepflow runs a Python program under a tracer and records a complete snapshot
 of the program state at every step. The browser then lets you move through those
 snapshots: forwards, backwards, or jumping straight to a moment of interest.</p>
 
@@ -220,28 +220,28 @@ that took an unexpected branch.</p>
 the 3.9 grammar.</p>
 
 <h4>From PyPI</h4>
-<pre><code>pip install pyflowviz</code></pre>
+<pre><code>pip install pystepflow</code></pre>
 
 <h4>From a local checkout</h4>
-<pre><code>git clone https://github.com/2001-Ankit/pyflowviz
-cd pyflowviz
+<pre><code>git clone https://github.com/2001-Ankit/pystepflow
+cd pystepflow
 pip install -e .</code></pre>
 
 <h4>Without installing anything</h4>
-<pre><code>python -m pyflowviz.server</code></pre>
+<pre><code>python -m pystepflow.server</code></pre>
 
 <div class="callout note">
-<p><strong>If <code>pyflowviz</code> is not found after installing:</strong> pip
+<p><strong>If <code>pystepflow</code> is not found after installing:</strong> pip
 put the executable in a Scripts directory that is not on your PATH. It prints a
 warning when this happens. Either add that directory to PATH, or use the
-equivalent <code>python -m pyflowviz.server</code> form, which always works.</p>
+equivalent <code>python -m pystepflow.server</code> form, which always works.</p>
 </div>
 </section>
 
 <section>
 <h2>3. Quick start</h2>
 
-<pre><code>pyflowviz my_script.py</code></pre>
+<pre><code>pystepflow my_script.py</code></pre>
 
 <p>Your browser opens at <code>http://127.0.0.1:8000</code> with the script
 loaded. Press <span class="kbd">Visualize</span> (or <span class="kbd">Ctrl</span>+<span class="kbd">Enter</span>),
@@ -275,13 +275,13 @@ file, or pointing a student at one exact moment.</p>
 <tr><td><code>--show-secrets</code></td><td>off</td><td>Do not mask values that look like API keys</td></tr>
 </table>
 
-<pre><code>pyflowviz                       # empty editor
-pyflowviz my_script.py          # preload a file
-pyflowviz my_script.py -p 9000  # different port
-pyflowviz -w ~/projects         # allow opening .py files under that folder
-pyflowviz agent.py -t 120       # allow 120s per trace, for slow API calls
-pyflowviz --show-secrets        # show real credential values
-pyflowviz --no-browser          # headless / remote use</code></pre>
+<pre><code>pystepflow                       # empty editor
+pystepflow my_script.py          # preload a file
+pystepflow my_script.py -p 9000  # different port
+pystepflow -w ~/projects         # allow opening .py files under that folder
+pystepflow agent.py -t 120       # allow 120s per trace, for slow API calls
+pystepflow --show-secrets        # show real credential values
+pystepflow --no-browser          # headless / remote use</code></pre>
 </section>
 
 <section>
@@ -428,7 +428,7 @@ any other library. Response objects render well, since they are ordinary
 instances with attributes.</p>
 
 <h3>Raise the timeout</h3>
-<pre><code>pyflowviz agent.py --timeout 120</code></pre>
+<pre><code>pystepflow agent.py --timeout 120</code></pre>
 <p>The 15-second default will kill a real model call. Size the timeout for the
 whole run, not one call — an agent doing five turns needs five turns' worth.</p>
 
@@ -505,7 +505,7 @@ value.</p>
 <h2>10. Limits and tuning</h2>
 
 <p>These exist to keep the browser responsive. All are constants at the top of
-<code>pyflowviz/tracer.py</code> except the timeout, which is a CLI flag.</p>
+<code>pystepflow/tracer.py</code> except the timeout, which is a CLI flag.</p>
 
 <table>
 <tr><th>Limit</th><th>Default</th><th>Effect when exceeded</th></tr>
@@ -525,7 +525,7 @@ hits <code>MAX_STEPS</code> first and returns a clean error rather than hanging.
 <section>
 <h2>11. Using it as a Python library</h2>
 
-<pre><code>from pyflowviz import trace_code
+<pre><code>from pystepflow import trace_code
 
 result = trace_code("""
 a = [1, 2]
@@ -544,7 +544,7 @@ next section. Set <code>redact=False</code> to keep real credential values.</p>
 <h4>serve(port=8000, host="127.0.0.1", file=None, workspace=None, open_browser=True, timeout=None, show_secrets=False)</h4>
 <p>Starts the web server. Blocks until interrupted.</p>
 
-<pre><code>from pyflowviz import serve
+<pre><code>from pystepflow import serve
 serve(port=8000, file="my_script.py", timeout=120)</code></pre>
 </section>
 
@@ -668,7 +668,7 @@ than corrupting the response.</p>
 <section class="page-break">
 <h2>14. Project layout</h2>
 
-<div class="tree">pyflowviz/
+<div class="tree">pystepflow/
 ├── __init__.py      public API: trace_code, serve, main
 ├── tracer.py        sys.settrace snapshots → JSON, secret redaction
 ├── cfg.py           ast → laid-out flowcharts
@@ -696,7 +696,7 @@ literally <code>__token__</code> and the password is the token.</p>
 <h3>Release checklist</h3>
 <ol>
   <li>Bump <code>version</code> in <code>pyproject.toml</code> and
-      <code>__version__</code> in <code>pyflowviz/__init__.py</code>. Keep them
+      <code>__version__</code> in <code>pystepflow/__init__.py</code>. Keep them
       in step.</li>
   <li>Delete stale artifacts — <code>twine upload dist/*</code> uploads
       everything it finds, including old builds:
@@ -707,11 +707,11 @@ literally <code>__token__</code> and the password is the token.</p>
       <pre><code>python -m twine check dist/*</code></pre></li>
   <li>Confirm the static files are bundled. They are not Python and are the
       easiest thing to lose:
-      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pyflowviz-1.0.0-py3-none-any.whl').namelist()))"</code></pre></li>
+      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pystepflow-1.0.0-py3-none-any.whl').namelist()))"</code></pre></li>
   <li>Rehearse on TestPyPI, then install from it into a clean virtual
       environment and actually run the command:
       <pre><code>python -m twine upload --repository testpypi dist/*
-pip install -i https://test.pypi.org/simple/ pyflowviz</code></pre></li>
+pip install -i https://test.pypi.org/simple/ pystepflow</code></pre></li>
   <li>Publish:
       <pre><code>python -m twine upload dist/*</code></pre></li>
   <li>Tag the release:
@@ -733,9 +733,9 @@ fix it. That is why step 6 is worth the extra few minutes.</p>
 <table>
 <tr><th>Symptom</th><th>Cause and fix</th></tr>
 
-<tr><td><code>pyflowviz</code> not found</td>
+<tr><td><code>pystepflow</code> not found</td>
     <td>The Scripts directory is not on PATH. Use
-        <code>python -m pyflowviz.server</code>, or add it.</td></tr>
+        <code>python -m pystepflow.server</code>, or add it.</td></tr>
 
 <tr><td>“Execution exceeded 15s”</td>
     <td>A slow call, not necessarily a bug. Raise it with
@@ -767,7 +767,7 @@ fix it. That is why step 6 is worth the extra few minutes.</p>
 </section>
 
 <footer>
-pyflowviz 1.0.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pyflowviz<br>
+pystepflow 1.0.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pystepflow<br>
 Generated from <code>docs/documentation.html</code>.
 </footer>
 

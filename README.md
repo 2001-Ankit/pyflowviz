@@ -1,4 +1,4 @@
-# pyflowviz
+# pystepflow
 
 Step through Python code in your browser and watch it run: the current line,
 the call stack, every variable, the objects on the heap with arrows showing
@@ -13,7 +13,7 @@ your machine.
 ## Install
 
 ```bash
-pip install pyflowviz
+pip install pystepflow
 ```
 
 Or from a checkout of this repository:
@@ -22,11 +22,11 @@ Or from a checkout of this repository:
 pip install -e .
 ```
 
-Either gives you a `pyflowviz` command. If it isn't found afterwards, pip put it
+Either gives you a `pystepflow` command. If it isn't found afterwards, pip put it
 in a Scripts directory that isn't on your PATH — this form always works:
 
 ```bash
-python -m pyflowviz.server
+python -m pystepflow.server
 ```
 
 Full documentation lives in [docs/documentation.html](docs/documentation.html)
@@ -35,13 +35,13 @@ Full documentation lives in [docs/documentation.html](docs/documentation.html)
 ## Use it on your own code
 
 ```bash
-pyflowviz                       # open the editor, paste or type code
-pyflowviz my_script.py          # open with your script loaded
-pyflowviz my_script.py -p 9000  # different port
-pyflowviz -w ~/projects         # allow the UI to open .py files under that folder
-pyflowviz --no-browser          # don't launch a browser
-pyflowviz agent.py -t 120       # allow 120s per trace (slow API calls)
-pyflowviz --show-secrets        # don't mask values that look like API keys
+pystepflow                       # open the editor, paste or type code
+pystepflow my_script.py          # open with your script loaded
+pystepflow my_script.py -p 9000  # different port
+pystepflow -w ~/projects         # allow the UI to open .py files under that folder
+pystepflow --no-browser          # don't launch a browser
+pystepflow agent.py -t 120       # allow 120s per trace (slow API calls)
+pystepflow --show-secrets        # don't mask values that look like API keys
 ```
 
 Your browser opens at <http://127.0.0.1:8000>. Press **Visualize** (or
@@ -128,7 +128,7 @@ any other library.
 Two things to set up first:
 
 ```bash
-pyflowviz agent.py --timeout 120      # API calls are slower than the 15s default
+pystepflow agent.py --timeout 120      # API calls are slower than the 15s default
 ```
 
 Without that, a real model call trips the timeout. Give it enough room for the
@@ -154,7 +154,7 @@ truncated at 200 elements for display, but keep the traced portion small.
 
 ## Limits
 
-Limits that keep the browser responsive, all in `pyflowviz/tracer.py`:
+Limits that keep the browser responsive, all in `pystepflow/tracer.py`:
 
 | Limit | Default | Meaning |
 | --- | --- | --- |
@@ -176,7 +176,7 @@ you would be willing to run directly, and keep the server on `127.0.0.1`
 ## Using it as a library
 
 ```python
-from pyflowviz import trace_code
+from pystepflow import trace_code
 
 result = trace_code("""
 a = [1, 2]
@@ -192,7 +192,7 @@ print(result["graphs"][0]["nodes"])  # flowchart of the module
 Or start the server from Python:
 
 ```python
-from pyflowviz import serve
+from pystepflow import serve
 serve(port=8000, file="my_script.py")
 ```
 
@@ -215,7 +215,7 @@ loop or a crash in your code cannot take the server down.
 The frontend is three plain files — no framework, no build step, no CDN.
 
 ```
-pyflowviz/
+pystepflow/
 ├── tracer.py        sys.settrace snapshots → JSON
 ├── cfg.py           ast → laid-out flowcharts
 ├── server.py        http.server + /api/trace

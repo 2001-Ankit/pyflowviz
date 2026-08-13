@@ -12,7 +12,7 @@ Chromium-based browser:
 ```powershell
 & "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" `
   --headless=new --disable-gpu --no-pdf-header-footer `
-  --print-to-pdf="docs\pyflowviz-documentation.pdf" `
+  --print-to-pdf="docs\pystepflow-documentation.pdf" `
   "file:///d:/python-visualizer/docs/documentation.html"
 ```
 
@@ -20,7 +20,7 @@ Chromium-based browser:
 
 ```bash
 chromium --headless=new --disable-gpu --no-pdf-header-footer \
-  --print-to-pdf=docs/pyflowviz-documentation.pdf \
+  --print-to-pdf=docs/pystepflow-documentation.pdf \
   "file://$(pwd)/docs/documentation.html"
 ```
 

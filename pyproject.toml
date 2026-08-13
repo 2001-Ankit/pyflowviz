@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pyflowviz"
+name = "pystepflow"
 version = "1.0.0"
 description = "Step through Python code in your browser: call stack, variables, heap objects and a live flow graph."
 readme = "README.md"
@@ -33,15 +33,15 @@ classifiers = [
 dependencies = []
 
 [project.scripts]
-pyflowviz = "pyflowviz:main"
+pystepflow = "pystepflow:main"
 
 [project.urls]
-Homepage = "https://github.com/2001-Ankit/pyflowviz"
-Repository = "https://github.com/2001-Ankit/pyflowviz"
-Issues = "https://github.com/2001-Ankit/pyflowviz/issues"
+Homepage = "https://github.com/2001-Ankit/pystepflow"
+Repository = "https://github.com/2001-Ankit/pystepflow"
+Issues = "https://github.com/2001-Ankit/pystepflow/issues"
 
 [tool.setuptools]
-packages = ["pyflowviz"]
+packages = ["pystepflow"]
 
 [tool.setuptools.package-data]
-pyflowviz = ["static/*"]
+pystepflow = ["static/*"]
