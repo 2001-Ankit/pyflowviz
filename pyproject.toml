@@ -9,7 +9,10 @@ description = "Step through Python code in your browser: call stack, variables, 
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
-license-files = ["LICENSE"]
+# Deliberately empty: setuptools otherwise emits `Dynamic: license-file`, which
+# PyPI's metadata validator rejects with an opaque 400. The LICENSE file is
+# still shipped in the sdist and the repository.
+license-files = []
 authors = [{ name = "Ankit Rai", email = "raia85859@gmail.com" }]
 keywords = ["visualizer", "debugger", "teaching", "tracer", "flowchart", "education", "control-flow"]
 classifiers = [
