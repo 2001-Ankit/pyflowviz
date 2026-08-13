@@ -13,14 +13,24 @@ your machine.
 ## Install
 
 ```bash
-pip install -e .        # from this directory
+pip install pyflowviz
 ```
 
-That gives you a `pyflowviz` command. If you would rather not install anything:
+Or from a checkout of this repository:
+
+```bash
+pip install -e .
+```
+
+Either gives you a `pyflowviz` command. If it isn't found afterwards, pip put it
+in a Scripts directory that isn't on your PATH — this form always works:
 
 ```bash
 python -m pyflowviz.server
 ```
+
+Full documentation lives in [docs/documentation.html](docs/documentation.html)
+(open it in a browser, or print it to PDF — see [docs/README.md](docs/README.md)).
 
 ## Use it on your own code
 

@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pyflowviz — Documentation</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+
+  :root {
+    --ink: #1a1f26;
+    --dim: #5b6673;
+    --faint: #8a94a0;
+    --rule: #d8dee6;
+    --accent: #1f5fa8;
+    --code-bg: #f4f6f9;
+    --mono: "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.55;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  h1, h2, h3, h4 { line-height: 1.25; margin: 0; }
+
+  h1 { font-size: 25pt; letter-spacing: -0.4pt; }
+  h2 {
+    font-size: 14pt;
+    margin-top: 20pt;
+    margin-bottom: 7pt;
+    padding-bottom: 3pt;
+    border-bottom: 1.5px solid var(--rule);
+    break-after: avoid;
+  }
+  h3 { font-size: 11.4pt; margin-top: 13pt; margin-bottom: 4pt; break-after: avoid; }
+  h4 { font-size: 10.2pt; margin-top: 10pt; margin-bottom: 3pt; color: var(--dim); break-after: avoid; }
+
+  p { margin: 0 0 7pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 17pt; }
+  li { margin-bottom: 3pt; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 8.9pt;
+    background: var(--code-bg);
+    padding: 0.5pt 3pt;
+    border-radius: 3px;
+  }
+
+  pre {
+    font-family: var(--mono);
+    font-size: 8.5pt;
+    line-height: 1.45;
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 7pt 9pt;
+    margin: 0 0 9pt;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    break-inside: avoid;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 10pt;
+    font-size: 9.2pt;
+    break-inside: avoid;
+  }
+  th, td {
+    text-align: left;
+    padding: 4pt 7pt;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  th {
+    background: var(--code-bg);
+    font-weight: 600;
+    font-size: 8.6pt;
+    text-transform: uppercase;
+    letter-spacing: 0.4pt;
+    color: var(--dim);
+  }
+  td code { font-size: 8.4pt; }
+
+  .lede { font-size: 11.4pt; color: var(--dim); margin: 6pt 0 3pt; }
+  .meta { font-size: 8.8pt; color: var(--faint); font-family: var(--mono); }
+
+  .cover {
+    border-bottom: 2.5px solid var(--ink);
+    padding-bottom: 12pt;
+    margin-bottom: 8pt;
+  }
+
+  .callout {
+    background: #fdf6e4;
+    border: 1px solid #e8d9a8;
+    border-left: 3px solid #c99a1e;
+    border-radius: 4px;
+    padding: 7pt 10pt;
+    margin: 0 0 10pt;
+    break-inside: avoid;
+  }
+  .callout.warn { background: #fdeeee; border-color: #ecc4c4; border-left-color: #c0392b; }
+  .callout.note { background: #eef4fb; border-color: #cadcf0; border-left-color: var(--accent); }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout strong { color: var(--ink); }
+
+  .toc { columns: 2; column-gap: 22pt; font-size: 9.4pt; }
+  .toc ol { padding-left: 15pt; margin: 0; }
+  .toc li { margin-bottom: 2pt; break-inside: avoid; }
+
+  .page-break { break-before: page; }
+  section { break-inside: auto; }
+
+  .kbd {
+    font-family: var(--mono);
+    font-size: 8.4pt;
+    border: 1px solid #c3ccd6;
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    padding: 0.5pt 4pt;
+    background: #fff;
+  }
+
+  .tree {
+    font-family: var(--mono);
+    font-size: 8.4pt;
+    line-height: 1.5;
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 8pt 10pt;
+    white-space: pre;
+    break-inside: avoid;
+  }
+
+  footer {
+    margin-top: 22pt;
+    padding-top: 8pt;
+    border-top: 1px solid var(--rule);
+    font-size: 8.6pt;
+    color: var(--faint);
+  }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>pyflowviz</h1>
+  <p class="lede">Step through Python code in your browser: call stack, variables,
+     heap objects, and a live flow graph.</p>
+  <p class="meta">Version 1.0.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
+     &nbsp;·&nbsp; github.com/2001-Ankit/pyflowviz</p>
+</div>
+
+<section>
+<h2>Contents</h2>
+<div class="toc">
+<ol>
+  <li>What it is</li>
+  <li>Installation</li>
+  <li>Quick start</li>
+  <li>Command-line reference</li>
+  <li>The interface, panel by panel</li>
+  <li>Keyboard and navigation</li>
+  <li>What it can and cannot trace</li>
+  <li>GenAI and LLM code</li>
+  <li>Security and privacy</li>
+  <li>Limits and tuning</li>
+  <li>Using it as a Python library</li>
+  <li>How it works internally</li>
+  <li>Data formats</li>
+  <li>Project layout</li>
+  <li>Publishing a release</li>
+  <li>Troubleshooting</li>
+</ol>
+</div>
+</section>
+
+<section>
+<h2>1. What it is</h2>
+
+<p>pyflowviz runs a Python program under a tracer and records a complete snapshot
+of the program state at every step. The browser then lets you move through those
+snapshots: forwards, backwards, or jumping straight to a moment of interest.</p>
+
+<p>At any step you can see the line about to execute, the full call stack with
+every local variable, the objects living on the heap with arrows showing which
+name points at which object, the output produced so far, and a flowchart of the
+code with the executed path lit up.</p>
+
+<p>It is built for the moment when you know <em>what</em> a program does but not
+<em>how</em> it got there — recursion, nested loops, aliasing bugs, an agent loop
+that took an unexpected branch.</p>
+
+<h3>Design constraints</h3>
+<ul>
+  <li><strong>Standard library only.</strong> No pip dependencies at runtime. No
+      CDN, no build step, no framework in the frontend.</li>
+  <li><strong>Entirely local.</strong> The server binds to <code>127.0.0.1</code>
+      and nothing is sent anywhere.</li>
+  <li><strong>Crash-isolated.</strong> Traced code runs in a subprocess with a
+      timeout, so an infinite loop cannot take the server down.</li>
+</ul>
+</section>
+
+<section>
+<h2>2. Installation</h2>
+
+<p>Requires Python 3.9 or newer. Verified on 3.14; the source is checked against
+the 3.9 grammar.</p>
+
+<h4>From PyPI</h4>
+<pre><code>pip install pyflowviz</code></pre>
+
+<h4>From a local checkout</h4>
+<pre><code>git clone https://github.com/2001-Ankit/pyflowviz
+cd pyflowviz
+pip install -e .</code></pre>
+
+<h4>Without installing anything</h4>
+<pre><code>python -m pyflowviz.server</code></pre>
+
+<div class="callout note">
+<p><strong>If <code>pyflowviz</code> is not found after installing:</strong> pip
+put the executable in a Scripts directory that is not on your PATH. It prints a
+warning when this happens. Either add that directory to PATH, or use the
+equivalent <code>python -m pyflowviz.server</code> form, which always works.</p>
+</div>
+</section>
+
+<section>
+<h2>3. Quick start</h2>
+
+<pre><code>pyflowviz my_script.py</code></pre>
+
+<p>Your browser opens at <code>http://127.0.0.1:8000</code> with the script
+loaded. Press <span class="kbd">Visualize</span> (or <span class="kbd">Ctrl</span>+<span class="kbd">Enter</span>),
+then <span class="kbd">→</span> to step forward.</p>
+
+<p>With no file argument you get an empty editor — paste code into it, or pick
+one of eight built-in examples from the <strong>Examples…</strong> menu. The
+examples were each chosen to demonstrate a different part of the tool: recursion
+and the growing call stack, aliasing and shared references, a linked list of
+objects pointing at objects, closures capturing state, and an exception
+propagating up the stack.</p>
+
+<h3>Deep links</h3>
+<p>Adding <code>#run</code> to the URL traces immediately on load;
+<code>#run@47</code> also jumps to step 47. Useful for bookmarking a preloaded
+file, or pointing a student at one exact moment.</p>
+<pre><code>http://127.0.0.1:8000/#run@47</code></pre>
+</section>
+
+<section>
+<h2>4. Command-line reference</h2>
+
+<table>
+<tr><th>Flag</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>file</code></td><td>—</td><td>A <code>.py</code> file to preload in the editor</td></tr>
+<tr><td><code>-p, --port</code></td><td><code>8000</code></td><td>Port to listen on</td></tr>
+<tr><td><code>--host</code></td><td><code>127.0.0.1</code></td><td>Interface to bind</td></tr>
+<tr><td><code>-w, --workspace</code></td><td>preloaded file's dir</td><td>Directory the UI may open <code>.py</code> files from</td></tr>
+<tr><td><code>-n, --no-browser</code></td><td>off</td><td>Do not launch a browser window</td></tr>
+<tr><td><code>-t, --timeout</code></td><td><code>15</code></td><td>Seconds a single trace may run before it is stopped</td></tr>
+<tr><td><code>--show-secrets</code></td><td>off</td><td>Do not mask values that look like API keys</td></tr>
+</table>
+
+<pre><code>pyflowviz                       # empty editor
+pyflowviz my_script.py          # preload a file
+pyflowviz my_script.py -p 9000  # different port
+pyflowviz -w ~/projects         # allow opening .py files under that folder
+pyflowviz agent.py -t 120       # allow 120s per trace, for slow API calls
+pyflowviz --show-secrets        # show real credential values
+pyflowviz --no-browser          # headless / remote use</code></pre>
+</section>
+
+<section>
+<h2>5. The interface, panel by panel</h2>
+
+<h3>Code</h3>
+<p>While editing, this is a plain textarea with line numbers. Once traced it
+switches to a highlighted view where colour encodes what each line is doing at
+the current step:</p>
+<table>
+<tr><th>Colour</th><th>Meaning</th></tr>
+<tr><td>Blue</td><td>The line about to execute</td></tr>
+<tr><td>Violet</td><td>A line in a calling frame further up the stack, waiting for its call to return</td></tr>
+<tr><td>Green</td><td>A <code>return</code> is happening on this line</td></tr>
+<tr><td>Red</td><td>An exception was raised here</td></tr>
+</table>
+<p>Press <span class="kbd">Esc</span> or the <strong>Edit</strong> button to go
+back to editing.</p>
+
+<h3>Program state — call stack</h3>
+<p>Every active frame, innermost on top, each showing its local variables in a
+useful order: arguments first in declaration order, then other names as they
+appear. Values that changed since the previous step are tinted amber, so a
+stepping loop shows you exactly what moved.</p>
+
+<h3>Program state — objects on the heap</h3>
+<p>Primitives (numbers, strings, booleans, <code>None</code>) are shown inline
+next to the variable name. Everything else — lists, dicts, sets, instances,
+functions — lives in the heap column and the variable shows a clickable chip
+with an arrow drawn to the real object.</p>
+
+<p>This is the part that makes aliasing visible. If two names point at the same
+list, you see two arrows converging on one box; if one is a copy, you see two
+separate boxes. Hovering a chip lights up its target and thickens the arrow;
+clicking scrolls to it.</p>
+
+<h3>Flow graph</h3>
+<p>A flowchart built from your code's own structure, not from the trace:
+sequential statements stack vertically, an <code>if</code> fans into two columns
+that merge again, a loop places its body under the test with a dashed back-edge
+routed down its own lane so nested loops stay readable.</p>
+
+<p>The execution is then painted on top of that fixed shape:</p>
+<ul>
+  <li>Boxes that have run are filled in; boxes never reached stay empty.</li>
+  <li>Arrows actually taken turn blue — so you can see which branch was chosen.</li>
+  <li>A <code>×N</code> badge counts how many times each box ran.</li>
+  <li>The current box is outlined in blue.</li>
+</ul>
+
+<p>The graph follows you into whichever function is executing. Untick
+<strong>follow</strong> to pin one function, or choose another from the
+dropdown. Clicking any box jumps to the moment that line ran — inside a loop,
+repeated clicks walk forward through the iterations. Zoom with
+<code>−</code> / <code>fit</code> / <code>+</code>.</p>
+
+<h3>Call tree</h3>
+<p>The second tab: every call made during the run, nested by depth, with
+arguments and return values. Clicking a call jumps to it. This is the
+complementary view to the flow graph — the graph shows the shape of one
+function, the tree shows the shape of the whole run.</p>
+
+<h3>Input and output</h3>
+<p>Whatever you type into the <strong>Input</strong> box is fed to
+<code>input()</code>, one line per call. Program output appears
+<em>incrementally</em>: at each step you see exactly how much had been printed
+by that point, not the final output. Errors appear in red at the end.</p>
+</section>
+
+<section class="page-break">
+<h2>6. Keyboard and navigation</h2>
+
+<table>
+<tr><th>Key</th><th>Action</th></tr>
+<tr><td><span class="kbd">→</span> / <span class="kbd">←</span></td><td>Next / previous step</td></tr>
+<tr><td><span class="kbd">↓</span></td><td>Step <strong>over</strong> — run a call without descending into it</td></tr>
+<tr><td><span class="kbd">↑</span></td><td>Step <strong>out</strong> — run until the current function returns</td></tr>
+<tr><td><span class="kbd">Space</span></td><td>Play / pause</td></tr>
+<tr><td><span class="kbd">Home</span> / <span class="kbd">End</span></td><td>First / last step</td></tr>
+<tr><td><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span></td><td>Re-run the trace</td></tr>
+<tr><td><span class="kbd">Esc</span></td><td>Back to editing</td></tr>
+</table>
+
+<p>The timeline slider scrubs the entire run. Playback speed is adjustable from
+0.5× to 5×.</p>
+
+<p><strong>Stepping is free.</strong> The whole run is recorded up front, so
+moving backwards, scrubbing, and replaying cost nothing and never re-execute
+your code.</p>
+</section>
+
+<section>
+<h2>7. What it can and cannot trace</h2>
+
+<h3>Verified working</h3>
+<p>Each of these was tested end to end:</p>
+<table>
+<tr><th>Feature</th><th>Feature</th></tr>
+<tr><td>Functions, recursion, nested calls</td><td>Classes, inheritance, methods</td></tr>
+<tr><td>Generators and <code>yield</code></td><td>List / dict comprehensions</td></tr>
+<tr><td>Decorators, <code>*args</code> / <code>**kwargs</code></td><td>Closures and <code>nonlocal</code></td></tr>
+<tr><td><code>try</code> / <code>except</code> / <code>finally</code></td><td><code>with</code> statements</td></tr>
+<tr><td>Standard-library imports</td><td>Lambdas, <code>sorted(key=…)</code></td></tr>
+<tr><td>Dataclasses, pydantic models</td><td>f-strings, walrus operator</td></tr>
+<tr><td><code>asyncio</code></td><td><code>threading</code></td></tr>
+<tr><td><code>match</code> statements</td><td>Unicode and bytes</td></tr>
+</table>
+
+<h3>Deliberately not stepped into</h3>
+<ul>
+  <li><strong>Library internals.</strong> Tracing stops at your file's boundary.
+      <code>json.dumps(...)</code> shows the call and its result, not a walk
+      through the <code>json</code> module. This is what keeps traces readable.</li>
+  <li><strong>C-level code.</strong> <code>sorted()</code>, <code>len()</code>,
+      NumPy operations are a single step, because there are no Python lines
+      inside to show.</li>
+  <li><strong>Other threads.</strong> Threaded code runs correctly and produces
+      correct output, but only the main thread's frames are recorded.</li>
+  <li><strong>Async event-loop internals.</strong> Your coroutines are traced;
+      the loop's own machinery is skipped.</li>
+  <li><strong>Terminal and GUI programs.</strong> Use the Input box for
+      <code>input()</code>; <code>curses</code> and <code>tkinter</code> will not
+      render.</li>
+</ul>
+</section>
+
+<section>
+<h2>8. GenAI and LLM code</h2>
+
+<p>Agent loops are one of the best things to point this at, because the control
+flow is exactly what is hard to hold in your head. Verified against agent loops
+with tool dispatch, retries, streaming, and pydantic response objects.</p>
+
+<p>What you see is <strong>your orchestration logic</strong>, one line at a time:
+the message list growing turn by turn, which tool was selected, the retry branch
+being taken, chunks accumulating in the streaming loop. The flow graph shows the
+agent loop as a loop, with <code>×N</code> counting the turns.</p>
+
+<p>What you do not see is the inside of the SDK.
+<code>client.messages.create(...)</code> is a single step showing the call and
+the response object; the HTTP machinery inside <code>anthropic</code>,
+<code>openai</code> or <code>langchain</code> is not stepped through, the same as
+any other library. Response objects render well, since they are ordinary
+instances with attributes.</p>
+
+<h3>Raise the timeout</h3>
+<pre><code>pyflowviz agent.py --timeout 120</code></pre>
+<p>The 15-second default will kill a real model call. Size the timeout for the
+whole run, not one call — an agent doing five turns needs five turns' worth.</p>
+
+<div class="callout warn">
+<p><strong>The calls really happen.</strong> Stepping through an agent loop costs
+the same in tokens and money as running it normally. Scrubbing back and forth
+afterwards is free, because you are moving through a recording — but the initial
+trace is a real execution.</p>
+</div>
+
+<h3>Trace size</h3>
+<p>Every step re-snapshots your data, so large objects are expensive: a
+1536-float embedding produced a 427 KB trace for a three-line program.
+Containers are truncated to 200 elements for display, but the traced portion
+still accumulates. Prefer tracing loop logic with a stub client over a
+50-message production context.</p>
+</section>
+
+<section class="page-break">
+<h2>9. Security and privacy</h2>
+
+<div class="callout warn">
+<p><strong>This is a tracer, not a sandbox.</strong> Your code really executes —
+file writes, network calls, <code>os.system</code> and everything else do exactly
+what they normally do. Only visualize code you would be willing to run directly.</p>
+</div>
+
+<h3>Keep it on localhost</h3>
+<p>The server defaults to <code>127.0.0.1</code>. Do not bind it to a public
+interface: the <code>/api/trace</code> endpoint executes arbitrary Python by
+design, so exposing it to a network hands anyone who can reach it a remote code
+execution primitive.</p>
+
+<h3>Secret redaction</h3>
+<p>Every variable ends up in the browser, where it may be screenshotted or
+shared. Values that are credentials are therefore masked before the trace
+leaves the tracer process, in the variables panel, in object attributes, and
+inside dictionaries.</p>
+
+<p>A value is masked when either its <em>name</em> or its <em>shape</em> says
+credential:</p>
+<table>
+<tr><th>Rule</th><th>Examples</th></tr>
+<tr><td>Names that always mean a credential</td><td><code>api_key</code>, <code>password</code>, <code>secret</code>, <code>access_token</code>, <code>private_key</code></td></tr>
+<tr><td>Ambiguous names, masked only if the value also looks secret</td><td><code>token</code>, <code>key</code>, <code>auth</code></td></tr>
+<tr><td>Value shapes, masked whatever the name</td><td><code>sk-…</code>, <code>ghp_…</code>, <code>AKIA…</code>, <code>xoxb-…</code>, <code>Bearer …</code></td></tr>
+</table>
+
+<p>The ambiguous tier matters in this domain: <code>tokens</code>,
+<code>token_count</code>, <code>max_tokens</code>, <code>key</code> and
+<code>keys</code> are everyday vocabulary and are verified to pass through
+untouched. Only a genuinely secret-looking value under those names is masked.</p>
+
+<p>A key read from the environment never reaches the browser at all:</p>
+<pre><code>api_key = os.environ["ANTHROPIC_API_KEY"]
+headers = {"x-api-key": api_key, "content-type": "application/json"}
+
+# In the UI:
+#   api_key  &lt;redacted&gt;
+#   headers  {'x-api-key': &lt;redacted&gt;, 'content-type': 'application/json'}</code></pre>
+
+<div class="callout">
+<p><strong>One limit worth knowing.</strong> A key written as a literal in your
+source is still visible in the code panel and in flow-graph labels — that is your
+own source being displayed, not a runtime value. Read secrets from the
+environment if this matters to you.</p>
+</div>
+
+<p>Pass <code>--show-secrets</code> when you genuinely need to inspect the real
+value.</p>
+</section>
+
+<section>
+<h2>10. Limits and tuning</h2>
+
+<p>These exist to keep the browser responsive. All are constants at the top of
+<code>pyflowviz/tracer.py</code> except the timeout, which is a CLI flag.</p>
+
+<table>
+<tr><th>Limit</th><th>Default</th><th>Effect when exceeded</th></tr>
+<tr><td><code>MAX_STEPS</code></td><td>5000</td><td>Tracing stops and reports how far it got</td></tr>
+<tr><td><code>MAX_ITEMS</code></td><td>200</td><td>Containers show the first 200 elements, marked truncated</td></tr>
+<tr><td><code>MAX_STRING</code></td><td>300</td><td>Strings are elided with an ellipsis</td></tr>
+<tr><td><code>MAX_DEPTH</code></td><td>8</td><td>Deeper nesting falls back to a plain <code>repr</code></td></tr>
+<tr><td><code>MAX_OUTPUT</code></td><td>200000</td><td>Output beyond this is dropped</td></tr>
+<tr><td><code>MAX_STATEMENTS</code> <span class="meta">(cfg.py)</span></td><td>400</td><td>No flow graph is drawn for that function</td></tr>
+<tr><td><code>--timeout</code></td><td>15 s</td><td>The trace subprocess is killed</td></tr>
+</table>
+
+<p>Raising them is safe; the cost is memory and a heavier page. An infinite loop
+hits <code>MAX_STEPS</code> first and returns a clean error rather than hanging.</p>
+</section>
+
+<section>
+<h2>11. Using it as a Python library</h2>
+
+<pre><code>from pyflowviz import trace_code
+
+result = trace_code("""
+a = [1, 2]
+b = a
+b.append(3)
+""")
+
+print(result["step_count"])          # 4
+print(result["steps"][-1]["stack"])  # frames, variables, heap references
+print(result["graphs"][0]["nodes"])  # flowchart of the module</code></pre>
+
+<h4>trace_code(code, stdin="", max_steps=5000, redact=True)</h4>
+<p>Traces a source string and returns the result dictionary described in the
+next section. Set <code>redact=False</code> to keep real credential values.</p>
+
+<h4>serve(port=8000, host="127.0.0.1", file=None, workspace=None, open_browser=True, timeout=None, show_secrets=False)</h4>
+<p>Starts the web server. Blocks until interrupted.</p>
+
+<pre><code>from pyflowviz import serve
+serve(port=8000, file="my_script.py", timeout=120)</code></pre>
+</section>
+
+<section class="page-break">
+<h2>12. How it works internally</h2>
+
+<h3>The tracer</h3>
+<p><code>tracer.py</code> installs <code>sys.settrace</code> and records a
+snapshot on every <code>line</code>, <code>call</code>, <code>return</code> and
+<code>exception</code> event whose frame belongs to your file. Frames from
+anywhere else return <code>None</code> from the trace function, which is what
+stops execution descending into library code.</p>
+
+<p>Each snapshot walks the frame chain from the module level down to the current
+frame and encodes every variable. Primitives are inlined; everything else is
+written into a per-step heap keyed by a <em>stable</em> id. Objects are kept
+alive for the duration so CPython cannot recycle an id and make two different
+objects appear to be the same one. That stability is what makes the reference
+arrows and the aliasing view correct.</p>
+
+<p>Self-referential structures terminate because a placeholder is inserted into
+the heap before an object's contents are encoded.</p>
+
+<p>Two details worth knowing: the module body is reported by CPython as a
+<code>call</code> event at line 0, which is an artefact of <code>exec()</code>
+rather than something you wrote, so it is skipped. And <code>stdout</code> is
+captured to a buffer, with each step recording the buffer length at that moment
+— which is how the output panel can show you exactly how much had been printed
+at any given step.</p>
+
+<h3>The flow graph</h3>
+<p><code>cfg.py</code> parses the same source with <code>ast</code> and lays out
+one flowchart per function, recursively. Each fragment reports its width, height,
+and the x of the vertical <em>spine</em> that flow enters and leaves on:</p>
+<ul>
+  <li><strong>A block of statements</strong> stacks its children vertically,
+      aligning their spines.</li>
+  <li><strong>An <code>if</code></strong> places the test on top, the two
+      branches side by side beneath it, and a merge point below both. If both
+      branches end in <code>return</code>, the merge is dropped as unreachable.</li>
+  <li><strong>A loop</strong> puts the body under the test and adds a back-edge
+      from each body exit to the test, with margin reserved on the left so the
+      edge has a lane to travel in.</li>
+</ul>
+<p>The browser receives finished absolute coordinates and only has to draw them.
+Layout is done in Python because the recursion mirrors Python's own nesting.</p>
+
+<h3>Execution overlay</h3>
+<p>Given a step, the browser replays every earlier step belonging to the same
+frame invocation, maps each line to its node, and counts visits. Transitions
+between consecutive lines are resolved to a chain of edges by walking the graph
+through merge points, which have no source line of their own. That is how a
+branch arrow gets lit without lighting its sibling.</p>
+
+<h3>The server</h3>
+<p><code>server.py</code> is a stdlib <code>ThreadingHTTPServer</code>. The only
+interesting decision is that <code>/api/trace</code> spawns a
+<strong>subprocess</strong> rather than tracing in-process. That buys crash
+isolation and a hard timeout: a runaway loop, a segfault, or a
+<code>sys.exit()</code> in your code affects only the child.</p>
+
+<p>The child writes its JSON result after a marker string, so anything the traced
+program printed directly to the underlying file descriptor is discarded rather
+than corrupting the response.</p>
+
+<table>
+<tr><th>Endpoint</th><th>Purpose</th></tr>
+<tr><td><code>GET /</code></td><td>The UI</td></tr>
+<tr><td><code>GET /static/…</code></td><td>Assets, with directory traversal refused</td></tr>
+<tr><td><code>GET /api/preload</code></td><td>The file given on the command line</td></tr>
+<tr><td><code>GET /api/open?path=…</code></td><td>A <code>.py</code> file inside the workspace</td></tr>
+<tr><td><code>POST /api/trace</code></td><td>Trace <code>{code, stdin}</code>, return the result</td></tr>
+</table>
+</section>
+
+<section>
+<h2>13. Data formats</h2>
+
+<h4>Trace result</h4>
+<pre><code>{
+  "steps": [ … ],           # one snapshot per event
+  "stdout": "…",            # complete output
+  "stdout_truncated": false,
+  "error": null,            # or {type, message, line, traceback}
+  "code": "…",              # the source that was traced
+  "step_count": 90,
+  "graphs": [ … ]           # one flowchart per function
+}</code></pre>
+
+<h4>A step</h4>
+<pre><code>{
+  "i": 42, "event": "line",   # call | line | return | exception
+  "line": 7, "func": "fib", "depth": 3,
+  "stack": [ {fid, func, line, is_global, vars: [{name, value}]} , … ],
+  "heap":  { "4": {id, kind, type, items, …} },
+  "out": 128                  # chars of stdout printed by this point
+}</code></pre>
+
+<h4>A value</h4>
+<pre><code>{"t": "prim", "v": 42, "d": "42"}   # inlined
+{"t": "ref",  "id": 4}              # points into that step's heap</code></pre>
+<p>Heap object <code>kind</code> is one of <code>list</code>, <code>tuple</code>,
+<code>set</code>, <code>dict</code>, <code>instance</code>, <code>function</code>,
+<code>class</code>, <code>module</code>, or <code>opaque</code>.</p>
+
+<h4>A graph</h4>
+<pre><code>{
+  "name": "fib", "signature": "fib(n)",
+  "first_line": 1, "last_line": 4,
+  "width": 502, "height": 898,
+  "nodes": [ {id, kind, label, line, x, y, w, h, calls} ],
+  "edges": [ {from, to, kind, label} ]
+}</code></pre>
+<p>Node <code>kind</code>: <code>start</code>, <code>stmt</code>,
+<code>cond</code>, <code>loop</code>, <code>return</code>, <code>raise</code>,
+<code>break</code>, <code>continue</code>, <code>def</code>, <code>merge</code>,
+<code>end</code>. Edge <code>kind</code>: <code>seq</code>, <code>true</code>,
+<code>false</code>, <code>back</code>.</p>
+</section>
+
+<section class="page-break">
+<h2>14. Project layout</h2>
+
+<div class="tree">pyflowviz/
+├── __init__.py      public API: trace_code, serve, main
+├── tracer.py        sys.settrace snapshots → JSON, secret redaction
+├── cfg.py           ast → laid-out flowcharts
+├── server.py        http.server, /api/trace, subprocess isolation
+└── static/
+    ├── index.html   layout and panels
+    ├── style.css    the whole visual design
+    ├── app.js       stepping, stack/heap rendering, reference arrows
+    ├── graph.js     flow-graph SVG and execution overlay
+    └── examples.js  the eight built-in programs</div>
+
+<p>No build step. The frontend is three plain files loaded directly by the
+browser; editing them and reloading is the entire development loop.</p>
+</section>
+
+<section>
+<h2>15. Publishing a release</h2>
+
+<h3>Prerequisites</h3>
+<pre><code>pip install build twine</code></pre>
+<p>A PyPI account with two-factor authentication enabled (mandatory), and an API
+token from Account settings → API tokens. When uploading, the username is
+literally <code>__token__</code> and the password is the token.</p>
+
+<h3>Release checklist</h3>
+<ol>
+  <li>Bump <code>version</code> in <code>pyproject.toml</code> and
+      <code>__version__</code> in <code>pyflowviz/__init__.py</code>. Keep them
+      in step.</li>
+  <li>Delete stale artifacts — <code>twine upload dist/*</code> uploads
+      everything it finds, including old builds:
+      <pre><code>rm -rf dist build</code></pre></li>
+  <li>Build both artifacts:
+      <pre><code>python -m build</code></pre></li>
+  <li>Validate the metadata:
+      <pre><code>python -m twine check dist/*</code></pre></li>
+  <li>Confirm the static files are bundled. They are not Python and are the
+      easiest thing to lose:
+      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pyflowviz-1.0.0-py3-none-any.whl').namelist()))"</code></pre></li>
+  <li>Rehearse on TestPyPI, then install from it into a clean virtual
+      environment and actually run the command:
+      <pre><code>python -m twine upload --repository testpypi dist/*
+pip install -i https://test.pypi.org/simple/ pyflowviz</code></pre></li>
+  <li>Publish:
+      <pre><code>python -m twine upload dist/*</code></pre></li>
+  <li>Tag the release:
+      <pre><code>git tag -a v1.0.0 -m "v1.0.0"
+git push origin v1.0.0</code></pre></li>
+</ol>
+
+<div class="callout warn">
+<p><strong>PyPI releases are permanent.</strong> A version can be yanked but
+never replaced or reused, and a project name is never released once taken. A
+typo in the description or a broken project URL means shipping a new version to
+fix it. That is why step 6 is worth the extra few minutes.</p>
+</div>
+</section>
+
+<section>
+<h2>16. Troubleshooting</h2>
+
+<table>
+<tr><th>Symptom</th><th>Cause and fix</th></tr>
+
+<tr><td><code>pyflowviz</code> not found</td>
+    <td>The Scripts directory is not on PATH. Use
+        <code>python -m pyflowviz.server</code>, or add it.</td></tr>
+
+<tr><td>“Execution exceeded 15s”</td>
+    <td>A slow call, not necessarily a bug. Raise it with
+        <code>--timeout 120</code>.</td></tr>
+
+<tr><td>“Stopped after 5000 steps”</td>
+    <td>An infinite loop, or a genuinely long program. Raise
+        <code>MAX_STEPS</code> in <code>tracer.py</code> if it is the latter.</td></tr>
+
+<tr><td>A variable shows <code>&lt;redacted&gt;</code></td>
+    <td>Redaction matched its name or value shape. Run with
+        <code>--show-secrets</code>.</td></tr>
+
+<tr><td>No flow graph for a function</td>
+    <td>It exceeds <code>MAX_STATEMENTS</code> (400). The trace still works;
+        only the chart is skipped.</td></tr>
+
+<tr><td>Stepping does not enter a function</td>
+    <td>It is library or C-level code. Only functions defined in the traced
+        source are stepped into, by design.</td></tr>
+
+<tr><td>Output appears all at once</td>
+    <td>Expected at the last step. Step backwards to see output accumulate.</td></tr>
+
+<tr><td><code>SyntaxError: invalid non-printable character U+FEFF</code></td>
+    <td>Should not occur — BOMs are stripped on read. If it does, the file
+        reached the tracer by another route; re-save it as UTF-8 without BOM.</td></tr>
+</table>
+</section>
+
+<footer>
+pyflowviz 1.0.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pyflowviz<br>
+Generated from <code>docs/documentation.html</code>.
+</footer>
+
+</body>
+</html>

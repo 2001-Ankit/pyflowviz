@@ -33,9 +33,9 @@ dependencies = []
 pyflowviz = "pyflowviz:main"
 
 [project.urls]
-Homepage = "https://github.com/ankitrai/pyflowviz"
-Repository = "https://github.com/ankitrai/pyflowviz"
-Issues = "https://github.com/ankitrai/pyflowviz/issues"
+Homepage = "https://github.com/2001-Ankit/pyflowviz"
+Repository = "https://github.com/2001-Ankit/pyflowviz"
+Issues = "https://github.com/2001-Ankit/pyflowviz/issues"
 
 [tool.setuptools]
 packages = ["pyflowviz"]
