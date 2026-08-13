@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Python Code Visualizer</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>🐍</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🐍</span>
+    <div>
+      <h1>Python Code Visualizer</h1>
+      <div class="filename" id="filename">untitled.py</div>
+    </div>
+  </div>
+
+  <div class="topbar-actions">
+    <label class="btn ghost" title="Load a .py file from your machine">
+      Open file<input type="file" id="fileInput" accept=".py,.txt" hidden>
+    </label>
+    <select id="exampleSelect" class="btn ghost" title="Load a built-in example">
+      <option value="">Examples…</option>
+    </select>
+    <button class="btn ghost" id="editBtn" title="Return to editing (Esc)">Edit</button>
+    <button class="btn primary" id="runBtn" title="Trace the program (Ctrl+Enter)">
+      <span id="runLabel">Visualize</span>
+    </button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ------------------------------------------------ code -->
+  <section class="panel code-panel">
+    <div class="panel-head">
+      <h2>Code</h2>
+      <div class="panel-head-meta" id="codeStatus">editing</div>
+    </div>
+
+    <div class="code-wrap" id="codeWrap">
+      <div class="gutter" id="gutter" aria-hidden="true"></div>
+      <textarea id="editor" spellcheck="false" autocomplete="off"
+                autocapitalize="off" wrap="off"></textarea>
+      <div class="code-view" id="codeView" hidden></div>
+    </div>
+
+    <div class="io-row">
+      <div class="io-box">
+        <label for="stdinBox">Input (stdin)</label>
+        <textarea id="stdinBox" spellcheck="false"
+                  placeholder="One line per input() call"></textarea>
+      </div>
+      <div class="io-box">
+        <label>Program output <span class="dim" id="outMeta"></span></label>
+        <pre id="stdout" class="stdout"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ state -->
+  <section class="panel state-panel">
+    <div class="panel-head">
+      <h2>Program state</h2>
+      <div class="panel-head-meta" id="stateMeta">not running</div>
+    </div>
+
+    <div class="state-body">
+      <svg class="arrows" id="arrows"></svg>
+
+      <div class="columns">
+        <div class="col frames-col">
+          <h3>Call stack <span class="hint">most recent last</span></h3>
+          <div id="frames" class="frames"></div>
+        </div>
+        <div class="col heap-col">
+          <h3>Objects <span class="hint">on the heap</span></h3>
+          <div id="heap" class="heap"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------ flow -->
+  <section class="panel flow-panel">
+    <div class="panel-head">
+      <div class="tabs">
+        <button class="tab active" data-tab="graph">Flow graph</button>
+        <button class="tab" data-tab="tree">Call tree</button>
+      </div>
+      <div class="panel-head-meta" id="flowMeta"></div>
+    </div>
+
+    <div class="graph-toolbar" id="graphToolbar">
+      <select id="graphSelect" title="Which function to draw"></select>
+      <label class="follow" title="Jump to the function being executed">
+        <input type="checkbox" id="followChk" checked> follow
+      </label>
+      <span class="zoom">
+        <button class="zbtn" id="zoomOut" title="Zoom out">−</button>
+        <button class="zbtn" id="zoomFit" title="Fit to panel">fit</button>
+        <button class="zbtn" id="zoomIn" title="Zoom in">+</button>
+      </span>
+    </div>
+
+    <div id="graph" class="graph"></div>
+    <div id="flow" class="flow" hidden></div>
+  </section>
+
+</main>
+
+<!-- ------------------------------------------------ transport -->
+<footer class="transport">
+  <div class="transport-buttons">
+    <button class="tbtn" id="firstBtn" title="First step (Home)">⏮</button>
+    <button class="tbtn" id="outBtn" title="Step out of this function">↰</button>
+    <button class="tbtn" id="prevBtn" title="Previous step (←)">◀</button>
+    <button class="tbtn play" id="playBtn" title="Play / pause (Space)">▶</button>
+    <button class="tbtn" id="nextBtn" title="Next step (→)">▶</button>
+    <button class="tbtn" id="overBtn" title="Step over the call on this line">↷</button>
+    <button class="tbtn" id="lastBtn" title="Last step (End)">⏭</button>
+  </div>
+
+  <input type="range" id="timeline" class="timeline" min="0" max="0" value="0" disabled>
+
+  <div class="transport-right">
+    <span class="counter" id="counter">0 / 0</span>
+    <label class="speed">
+      speed
+      <select id="speedSelect">
+        <option value="700">0.5×</option>
+        <option value="350" selected>1×</option>
+        <option value="150">2×</option>
+        <option value="60">5×</option>
+      </select>
+    </label>
+  </div>
+</footer>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="/static/examples.js"></script>
+<script src="/static/graph.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

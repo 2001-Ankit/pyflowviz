@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyvisualizer"
+version = "1.0.0"
+description = "Step through Python code in your browser: call stack, variables, heap objects and a live flow graph."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["visualizer", "debugger", "teaching", "tracer", "flowchart", "education"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Web Environment",
+  "Intended Audience :: Education",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Education",
+  "Topic :: Software Development :: Debuggers",
+]
+# Deliberately no runtime dependencies: standard library only.
+dependencies = []
+
+[project.scripts]
+pyviz = "pyvisualizer:main"
+pyvisualizer = "pyvisualizer:main"
+
+[project.urls]
+Homepage = "https://github.com/yourname/pyvisualizer"
+
+[tool.setuptools]
+packages = ["pyvisualizer"]
+
+[tool.setuptools.package-data]
+pyvisualizer = ["static/*"]
