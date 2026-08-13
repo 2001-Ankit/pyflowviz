@@ -1,11 +1,11 @@
-﻿"""
-Web server for the Python Code Visualizer.
+"""
+Web server for pyflowviz, the Python code visualizer.
 
 Serves the UI and exposes a single API endpoint that traces a snippet of code.
 
-    python server.py                  # start on http://127.0.0.1:8000
-    python server.py my_script.py     # start with that file preloaded
-    python server.py -p 9000 -w .     # custom port, allow opening files under .
+    python -m pyflowviz.server                  # start on http://127.0.0.1:8000
+    python -m pyflowviz.server my_script.py     # start with that file preloaded
+    python -m pyflowviz.server -p 9000 -w .     # custom port, allow opening files under .
 
 Tracing happens in a *subprocess* with a wall-clock timeout, so an infinite
 loop or a segfault in the traced code cannot take the server down.
@@ -92,7 +92,7 @@ def run_trace(code, stdin="", timeout=None):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "PyVisualizer/1.0"
+    server_version = "pyflowviz/1.0"
 
     # ---- plumbing ----------------------------------------------------
 

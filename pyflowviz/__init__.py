@@ -1,23 +1,24 @@
 """
-pyvisualizer — step through your Python code in the browser.
+pyflowviz — step through your Python code in the browser.
 
 Run any script and watch it execute line by line: the call stack, every
-variable, the objects on the heap and the references between them, and the
-output as it appears.
+variable, the objects on the heap and the references between them, a flow
+graph of the code itself, and the output as it appears.
 
 Command line::
 
-    pyviz                    # open the editor
-    pyviz my_script.py       # open with that script loaded
+    pyflowviz                    # open the editor
+    pyflowviz my_script.py       # open with that script loaded
+    pyflowviz agent.py -t 120    # allow slow calls (API requests, etc.)
 
 From Python::
 
-    from pyvisualizer import trace_code, serve
+    from pyflowviz import trace_code, serve
 
     result = trace_code("x = [1, 2]\\nx.append(3)\\n")
     print(result["step_count"])
 
-    serve(port=8000)         # start the web UI
+    serve(port=8000)             # start the web UI
 """
 
 from .tracer import trace_code, Tracer
@@ -47,7 +48,7 @@ def serve(port=8000, host="127.0.0.1", file=None, workspace=None,
 
 
 def main(argv=None):
-    """Console-script entry point for ``pyviz``."""
+    """Console-script entry point for ``pyflowviz``."""
     from . import server
 
     return server.main(argv)

@@ -15,7 +15,7 @@ Can be used as a library::
 or as a subprocess (this is what ``server.py`` does, so runaway code cannot
 take the server down)::
 
-    echo '{"code": "...", "stdin": ""}' | python tracer.py
+    echo '{"code": "...", "stdin": ""}' | python -m pyflowviz.tracer
 """
 
 import io

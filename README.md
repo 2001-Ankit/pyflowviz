@@ -1,4 +1,4 @@
-# pyvisualizer
+# pyflowviz
 
 Step through Python code in your browser and watch it run: the current line,
 the call stack, every variable, the objects on the heap with arrows showing
@@ -16,22 +16,22 @@ your machine.
 pip install -e .        # from this directory
 ```
 
-That gives you a `pyviz` command. If you would rather not install anything:
+That gives you a `pyflowviz` command. If you would rather not install anything:
 
 ```bash
-python -m pyvisualizer.server
+python -m pyflowviz.server
 ```
 
 ## Use it on your own code
 
 ```bash
-pyviz                       # open the editor, paste or type code
-pyviz my_script.py          # open with your script loaded
-pyviz my_script.py -p 9000  # different port
-pyviz -w ~/projects         # allow the UI to open .py files under that folder
-pyviz --no-browser          # don't launch a browser
-pyviz agent.py -t 120       # allow 120s per trace (slow API calls)
-pyviz --show-secrets        # don't mask values that look like API keys
+pyflowviz                       # open the editor, paste or type code
+pyflowviz my_script.py          # open with your script loaded
+pyflowviz my_script.py -p 9000  # different port
+pyflowviz -w ~/projects         # allow the UI to open .py files under that folder
+pyflowviz --no-browser          # don't launch a browser
+pyflowviz agent.py -t 120       # allow 120s per trace (slow API calls)
+pyflowviz --show-secrets        # don't mask values that look like API keys
 ```
 
 Your browser opens at <http://127.0.0.1:8000>. Press **Visualize** (or
@@ -118,7 +118,7 @@ any other library.
 Two things to set up first:
 
 ```bash
-pyviz agent.py --timeout 120      # API calls are slower than the 15s default
+pyflowviz agent.py --timeout 120      # API calls are slower than the 15s default
 ```
 
 Without that, a real model call trips the timeout. Give it enough room for the
@@ -144,7 +144,7 @@ truncated at 200 elements for display, but keep the traced portion small.
 
 ## Limits
 
-Limits that keep the browser responsive, all in `pyvisualizer/tracer.py`:
+Limits that keep the browser responsive, all in `pyflowviz/tracer.py`:
 
 | Limit | Default | Meaning |
 | --- | --- | --- |
@@ -166,7 +166,7 @@ you would be willing to run directly, and keep the server on `127.0.0.1`
 ## Using it as a library
 
 ```python
-from pyvisualizer import trace_code
+from pyflowviz import trace_code
 
 result = trace_code("""
 a = [1, 2]
@@ -182,7 +182,7 @@ print(result["graphs"][0]["nodes"])  # flowchart of the module
 Or start the server from Python:
 
 ```python
-from pyvisualizer import serve
+from pyflowviz import serve
 serve(port=8000, file="my_script.py")
 ```
 
@@ -205,7 +205,7 @@ loop or a crash in your code cannot take the server down.
 The frontend is three plain files — no framework, no build step, no CDN.
 
 ```
-pyvisualizer/
+pyflowviz/
 ├── tracer.py        sys.settrace snapshots → JSON
 ├── cfg.py           ast → laid-out flowcharts
 ├── server.py        http.server + /api/trace
