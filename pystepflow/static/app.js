@@ -280,38 +280,91 @@ function renderHeapObject(obj, heap) {
  * Rendering one step
  * ================================================================== */
 
+/* ================================================================== *
+ * Rebuilding a step from deltas
+ *
+ * Steps arrive as differences against the one before, with a full keyframe
+ * every `keyframe_every`. To show step N we replay from the nearest keyframe
+ * at or before N. Stepping forward continues from the cached state, so normal
+ * playback costs one delta per step; scrubbing costs at most a keyframe's
+ * worth of replay.
+ * ================================================================== */
+
+const view = { index: -1, heap: {}, vars: {} };
+
+function resetView() {
+  view.index = -1;
+  view.heap = {};
+  view.vars = {};
+}
+
+function applyStep(step) {
+  if (step.full) {
+    view.heap = Object.assign({}, step.heap);
+    view.vars = {};
+  } else {
+    if (step.hdel) step.hdel.forEach((id) => { delete view.heap[id]; });
+    if (step.hset) Object.assign(view.heap, step.hset);
+  }
+  // A frame carrying `vars` is one whose variables moved; the rest are
+  // unchanged and keep whatever the replay already holds for that frame id.
+  step.stack.forEach((frame) => {
+    if (frame.vars) view.vars[frame.fid] = frame.vars;
+  });
+}
+
+function stateAt(index) {
+  if (view.index === index) return view;
+
+  let start;
+  if (view.index >= 0 && view.index < index) {
+    start = view.index + 1;                 // carry on from where we are
+  } else {
+    let key = index;
+    while (key > 0 && !state.steps[key].full) key--;
+    resetView();
+    start = key;
+  }
+  for (let i = start; i <= index; i++) applyStep(state.steps[i]);
+  view.index = index;
+  return view;
+}
+
+/** The step's stack with variables filled back in. */
+function stackAt(index) {
+  const rebuilt = stateAt(index);
+  return state.steps[index].stack.map((frame) => ({
+    fid: frame.fid,
+    func: frame.func,
+    line: frame.line,
+    file: frame.file,
+    is_global: frame.is_global,
+    chg: frame.chg || [],
+    vars: frame.vars || rebuilt.vars[frame.fid] || []
+  }));
+}
+
 function valueKey(value) {
   return value.t === "prim" ? "p:" + value.d : "r:" + value.id;
 }
 
-function previousVarsFor(fid) {
-  if (state.index === 0) return null;
-  const prev = state.steps[state.index - 1];
-  const frame = prev.stack.find((f) => f.fid === fid);
-  if (!frame) return null;
-  const map = {};
-  frame.vars.forEach((v) => { map[v.name] = valueKey(v.value); });
-  return map;
-}
-
-function renderFrames(step) {
-  const html = step.stack.map((frame, i) => {
-    const active = i === step.stack.length - 1;
-    const before = previousVarsFor(frame.fid);
+function renderFrames(stack, heap) {
+  const html = stack.map((frame, i) => {
+    const active = i === stack.length - 1;
+    // The tracer reports which names moved since this frame was last shown.
+    const moved = new Set(frame.chg || []);
     const rows = frame.vars.length
-      ? frame.vars.map((v) => {
-          const key = valueKey(v.value);
-          const changed = before && before[v.name] !== undefined && before[v.name] !== key;
-          const added = before && before[v.name] === undefined;
-          return '<div class="var-row' + (changed || added ? " changed" : "") + '">' +
+      ? frame.vars.map((v) =>
+          '<div class="var-row' + (moved.has(v.name) ? " changed" : "") + '">' +
             '<span class="var-name">' + esc(v.name) + "</span>" +
-            '<span class="var-value">' + renderValue(v.value, step.heap) + "</span></div>";
-        }).join("")
+            '<span class="var-value">' + renderValue(v.value, heap) + "</span></div>"
+        ).join("")
       : '<div class="empty-note">no variables yet</div>';
 
     // In a multi-file run, say which module each frame lives in.
     const shown = state.shownFile;
     const foreign = state.files.length > 1 && frame.file && frame.file !== shown;
+
     const where = state.files.length > 1 && frame.file
       ? '<span class="frame-file" title="' + esc(frame.file) + '">' + esc(frame.file) + "</span>"
       : "";
@@ -327,10 +380,10 @@ function renderFrames(step) {
   el.frames.innerHTML = html.reverse().join("");
 }
 
-function renderHeap(step) {
-  const ids = Object.keys(step.heap).map(Number).sort((a, b) => a - b);
+function renderHeap(heap) {
+  const ids = Object.keys(heap).map(Number).sort((a, b) => a - b);
   el.heap.innerHTML = ids.length
-    ? ids.map((id) => renderHeapObject(step.heap[id], step.heap)).join("")
+    ? ids.map((id) => renderHeapObject(heap[id], heap)).join("")
     : '<div class="empty-note">no objects yet</div>';
 }
 
@@ -554,9 +607,12 @@ function renderStep() {
   const step = state.steps[state.index];
   if (!step) { renderOutput(null); return; }
 
+  const rebuilt = stateAt(state.index);
+  const stack = stackAt(state.index);
+
   highlightCode(step);
-  renderFrames(step);
-  renderHeap(step);
+  renderFrames(stack, rebuilt.heap);
+  renderHeap(rebuilt.heap);
   renderOutput(step);
   renderFlow();
   renderGraph(step);
@@ -590,8 +646,10 @@ function buildFlow() {
   state.steps.forEach((step, i) => {
     if (step.event === "call") {
       if (nodes.length >= MAX_FLOW_NODES) { truncated = true; return; }
+      // A call event is a frame's first appearance, so it always carries its
+      // variables; the fallback is belt and braces.
       const frame = step.stack[step.stack.length - 1];
-      const args = frame.vars.slice(0, 3)
+      const args = (frame.vars || []).slice(0, 3)
         .map((v) => v.name + "=" + (v.value.t === "prim" ? v.value.d : "…")).join(", ");
       const node = { func: step.func, args, start: i, end: state.steps.length - 1,
                      depth: stack.length, children: [], retval: null };
@@ -770,6 +828,7 @@ async function run() {
     state.builtFiles = {};
     state.shownFile = null;
     state.pinnedFile = null;
+    resetView();                      // the delta replay starts over
 
     fillGraphSelect();
     fillFileSelect();

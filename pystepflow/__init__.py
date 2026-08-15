@@ -23,7 +23,7 @@ From Python::
 
 from .tracer import trace_code, trace_project, Tracer
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __all__ = ["trace_code", "trace_project", "Tracer", "serve", "main"]
 
 

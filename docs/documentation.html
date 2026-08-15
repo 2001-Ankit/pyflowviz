@@ -158,7 +158,7 @@
   <h1>pystepflow</h1>
   <p class="lede">Step through Python code in your browser: call stack, variables,
      heap objects, and a live flow graph.</p>
-  <p class="meta">Version 1.2.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
+  <p class="meta">Version 1.3.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
      &nbsp;·&nbsp; github.com/2001-Ankit/pystepflow</p>
 </div>
 
@@ -692,6 +692,41 @@ captured to a buffer, with each step recording the buffer length at that moment
 — which is how the output panel can show you exactly how much had been printed
 at any given step.</p>
 
+<h3>Delta snapshots</h3>
+
+<p>A snapshot of every frame and every reachable object, taken on every line,
+is enormous: measured across four ordinary programs, storing each one in full
+came to <strong>14 MB for 2,299 steps</strong> — about 6 KB per step, and 31 KB
+per step for a recursion carrying a growing list.</p>
+
+<p>Almost nothing changes between two lines of a program, so steps are stored
+as differences instead. Each step sends only the frames whose variables moved,
+the heap objects added or changed, and the ids that went out of scope. Every
+40th step is a full keyframe, so the timeline can be scrubbed anywhere without
+replaying from the beginning. The same four programs now come to
+<strong>1.87 MB</strong>, a 7.5× reduction:</p>
+
+<table>
+<tr><th>Program</th><th>Steps</th><th>Full</th><th>Delta</th><th>Ratio</th></tr>
+<tr><td>Embedding, 1536 floats</td><td>1540</td><td>444 KB</td><td>430 KB</td><td>1.0×</td></tr>
+<tr><td>Growing conversation</td><td>184</td><td>4079 KB</td><td>357 KB</td><td>11.4×</td></tr>
+<tr><td>Deep recursion</td><td>247</td><td>7521 KB</td><td>878 KB</td><td>8.6×</td></tr>
+<tr><td>Nested loops</td><td>328</td><td>2060 KB</td><td>207 KB</td><td>9.9×</td></tr>
+</table>
+
+<p>The embedding barely improves, and that is the honest shape of the
+technique: a list that grows by one element per step genuinely changes every
+step, so there is nothing to omit. Delta encoding shrinks the payload, the
+browser's memory and the JSON parse; it does <em>not</em> reduce the work of
+tracing, because detecting what changed requires encoding everything anyway.</p>
+
+<div class="callout note">
+<p><strong>Frame ids are retired when a frame returns.</strong> CPython reuses
+the memory of a dead frame, so without that a later call could be handed the
+same frame id — and under delta encoding it would inherit the previous
+function's variables. This mattered far less when every step was complete.</p>
+</div>
+
 <h3>The flow graph</h3>
 <p><code>cfg.py</code> parses the same source with <code>ast</code> and lays out
 one flowchart per function, recursively. Each fragment reports its width, height,
@@ -742,23 +777,58 @@ than corrupting the response.</p>
 
 <h4>Trace result</h4>
 <pre><code>{
-  "steps": [ … ],           # one snapshot per event
+  "steps": [ … ],           # one snapshot per event, delta-encoded
   "stdout": "…",            # complete output
   "stdout_truncated": false,
-  "error": null,            # or {type, message, line, traceback}
+  "error": null,            # or {type, message, line, file, traceback}
   "code": "…",              # the source that was traced
   "step_count": 90,
-  "graphs": [ … ]           # one flowchart per function
+  "graphs": [ … ],          # one flowchart per function
+  "format": "delta",        # how to read `steps`
+  "keyframe_every": 40,
+
+  # project mode only
+  "mode": "project",
+  "sources": { "main.py": "…" },   # every file that ran
+  "files": [ "main.py", … ],
+  "entry": "main.py",
+  "map": { modules, edges, calls, … }
 }</code></pre>
 
 <h4>A step</h4>
+<p>Steps are stored as differences against the previous step, with a full
+keyframe every <code>keyframe_every</code> (40). Both kinds share a common
+head:</p>
 <pre><code>{
   "i": 42, "event": "line",   # call | line | return | exception
-  "line": 7, "func": "fib", "depth": 3,
-  "stack": [ {fid, func, line, is_global, vars: [{name, value}]} , … ],
-  "heap":  { "4": {id, kind, type, items, …} },
+  "line": 7, "func": "fib", "file": "services/pricing.py",
+  "depth": 3,
   "out": 128                  # chars of stdout printed by this point
 }</code></pre>
+
+<p>A <strong>keyframe</strong> adds <code>"full": 1</code> and carries
+everything:</p>
+<pre><code>"stack": [ {fid, func, line, file, is_global, vars: [{name, value}], chg: [names]} , … ],
+"heap":  { "4": {id, kind, type, items, …} }</code></pre>
+
+<p>A <strong>delta</strong> carries only what moved. Every frame still reports
+its identity, line and file, so only variables and the heap need
+reconstructing; a frame whose variables did not change simply omits
+<code>vars</code>:</p>
+<pre><code>"stack": [ {fid, func, line, file, is_global},                  # unchanged
+           {fid, func, line, file, is_global, vars, chg} ],     # moved
+"hset":  { "7": {…} },      # heap objects added or changed
+"hdel":  [ 4, 9 ]           # ids that went out of scope</code></pre>
+
+<p><code>chg</code> lists the names whose values moved since that frame was
+last shown, which is what the amber highlight uses. It is computed while
+tracing rather than in the browser, because the browser no longer holds two
+steps at once. A frame's first appearance reports nothing, so entering a
+function does not light up every argument.</p>
+
+<p>To show step N, replay from the nearest keyframe at or before N. Stepping
+forward continues from the state already in hand, so ordinary playback costs
+one delta per step, and scrubbing costs at most 40 deltas.</p>
 
 <h4>A value</h4>
 <pre><code>{"t": "prim", "v": 42, "d": "42"}   # inlined
@@ -825,7 +895,7 @@ literally <code>__token__</code> and the password is the token.</p>
       <pre><code>python -m twine check dist/*</code></pre></li>
   <li>Confirm the static files are bundled. They are not Python and are the
       easiest thing to lose:
-      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pystepflow-1.2.0-py3-none-any.whl').namelist()))"</code></pre></li>
+      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pystepflow-1.3.0-py3-none-any.whl').namelist()))"</code></pre></li>
   <li>Rehearse on TestPyPI, then install from it into a clean virtual
       environment and actually run the command:
       <pre><code>python -m twine upload --repository testpypi dist/*
@@ -833,8 +903,8 @@ pip install -i https://test.pypi.org/simple/ pystepflow</code></pre></li>
   <li>Publish:
       <pre><code>python -m twine upload dist/*</code></pre></li>
   <li>Tag the release:
-      <pre><code>git tag -a v1.2.0 -m "v1.2.0"
-git push origin v1.2.0</code></pre></li>
+      <pre><code>git tag -a v1.3.0 -m "v1.3.0"
+git push origin v1.3.0</code></pre></li>
 </ol>
 
 <div class="callout warn">
@@ -885,7 +955,7 @@ fix it. That is why step 6 is worth the extra few minutes.</p>
 </section>
 
 <footer>
-pystepflow 1.2.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pystepflow<br>
+pystepflow 1.3.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pystepflow<br>
 Generated from <code>docs/documentation.html</code>.
 </footer>
 

@@ -46,6 +46,13 @@ MAX_STRING = 300        # characters kept per repr'd string
 MAX_ITEMS = 200         # elements shown per container
 MAX_DEPTH = 8           # nesting depth before we fall back to repr
 
+# Snapshots are stored as deltas against the previous step, because almost
+# nothing changes between two lines of a program: re-sending every frame and
+# every heap object each time is what made traces enormous. Every Nth step is
+# a full "keyframe", so the browser can jump anywhere on the timeline and
+# rebuild the state by replaying at most this many deltas.
+KEYFRAME_EVERY = 40
+
 _PRIMITIVES = (type(None), bool, int, float, complex, str, bytes)
 
 # ----------------------------------------------------------------------
@@ -156,6 +163,11 @@ class Tracer:
         # Per-step scratch space, reset for every snapshot.
         self._heap = {}
         self._seen = set()
+
+        # What the browser already knows, mirrored here so we can send only the
+        # difference. Both are replaced wholesale on a keyframe.
+        self._prev_heap = {}
+        self._prev_frames = {}     # fid -> the vars list last sent for it
 
     # ------------------------------------------------------------------
     # Value encoding
@@ -403,13 +415,26 @@ class Tracer:
             value = frame.f_locals[name]
             variables.append({"name": name, "value": self.encode_named(name, value)})
 
+        # Which values moved since this frame was last shown. Computed here
+        # rather than in the browser, which no longer holds two steps at once.
+        # A frame's first appearance reports nothing, so entering a function
+        # does not light up every argument.
+        fid = self._frame_id(frame)
+        previous = self._prev_frames.get(fid)
+        changed = []
+        if previous is not None:
+            was = {v["name"]: v["value"] for v in previous}
+            changed = [v["name"] for v in variables
+                       if v["name"] in was and was[v["name"]] != v["value"]]
+
         return {
-            "fid": 0 if is_global else self._frame_id(frame),
+            "fid": fid,
             "func": "<module>" if is_global else frame.f_code.co_name,
             "line": frame.f_lineno,
             "file": self._file_key(frame.f_code.co_filename),
             "is_global": is_global,
             "vars": variables,
+            "chg": changed,
         }
 
     def _stack(self, frame):
@@ -437,6 +462,7 @@ class Tracer:
         self._seen = set()
 
         stack = self._stack(frame)
+        heap = self._heap
         step = {
             "i": len(self.steps),
             "event": event,
@@ -444,10 +470,9 @@ class Tracer:
             "func": stack[-1]["func"] if stack else "<module>",
             "file": self._file_key(frame.f_code.co_filename),
             "depth": len(stack),
-            "stack": stack,
-            "heap": self._heap,
             "out": self._output_length(),
         }
+        self._encode_step(step, stack, heap)
 
         if event == "return":
             step["retval"] = self.encode(arg)
@@ -456,6 +481,47 @@ class Tracer:
             step["exc"] = "%s: %s" % (exc_type.__name__, exc_value)
 
         self.steps.append(step)
+
+    def _encode_step(self, step, stack, heap):
+        """Store the step as a keyframe or as a delta against the last one.
+
+        A keyframe carries the whole stack and heap. A delta carries only the
+        frames whose variables moved, the heap objects that were added or
+        changed, and the ids that went out of scope. Frame identity, line
+        numbers and file names are always sent, so the browser only has to
+        reconstruct variables and the heap.
+        """
+        if len(self.steps) % KEYFRAME_EVERY == 0:
+            step["full"] = 1
+            step["stack"] = stack
+            step["heap"] = heap
+            self._prev_frames = {f["fid"]: f["vars"] for f in stack}
+            self._prev_heap = heap
+            return
+
+        compact = []
+        for entry in stack:
+            previous = self._prev_frames.get(entry["fid"])
+            if previous is not None and previous == entry["vars"]:
+                # Unchanged: send identity and position, drop the variables.
+                compact.append({
+                    "fid": entry["fid"], "func": entry["func"],
+                    "line": entry["line"], "file": entry["file"],
+                    "is_global": entry["is_global"],
+                })
+            else:
+                compact.append(entry)
+                self._prev_frames[entry["fid"]] = entry["vars"]
+        step["stack"] = compact
+
+        changed = {oid: obj for oid, obj in heap.items()
+                   if self._prev_heap.get(oid) != obj}
+        gone = [oid for oid in self._prev_heap if oid not in heap]
+        if changed:
+            step["hset"] = changed
+        if gone:
+            step["hdel"] = gone
+        self._prev_heap = heap
 
     def _output_length(self):
         return min(len(self._out.getvalue()), MAX_OUTPUT)
@@ -483,6 +549,14 @@ class Tracer:
         if len(self.steps) >= self.max_steps:
             raise _StepLimit()
         self._snapshot(frame, event, arg)
+
+        # Once a frame returns, forget its id. CPython reuses the memory of a
+        # dead frame, so without this a later call could be handed the same
+        # frame id -- and with delta encoding it would inherit its variables.
+        if event == "return":
+            retired = self._frame_ids.pop(id(frame), None)
+            if retired is not None:
+                self._prev_frames.pop(retired, None)
         return self._trace
 
     # ------------------------------------------------------------------
@@ -581,6 +655,9 @@ class Tracer:
             "code": self.code,
             "step_count": len(self.steps),
             "graphs": self._graphs(),
+            # The browser needs to know how to read `steps`.
+            "format": "delta",
+            "keyframe_every": KEYFRAME_EVERY,
             # Project mode extras. The UI shows one file at a time and follows
             # execution across them, so it needs every source that ran.
             "mode": "project" if self.project_mode else "snippet",
