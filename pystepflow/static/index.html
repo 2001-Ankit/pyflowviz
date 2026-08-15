@@ -97,6 +97,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="graph">Flow graph</button>
         <button class="tab" data-tab="tree">Call tree</button>
+        <button class="tab" data-tab="map" id="mapTab" hidden>Project map</button>
       </div>
       <div class="panel-head-meta" id="flowMeta"></div>
     </div>
@@ -115,6 +116,13 @@
 
     <div id="graph" class="graph"></div>
     <div id="flow" class="flow" hidden></div>
+    <div id="map" class="graph" hidden></div>
+    <div class="map-legend" id="mapLegend" hidden>
+      <span><i class="sw ran"></i>ran</span>
+      <span><i class="sw dead"></i>never ran</span>
+      <span><i class="sw imp"></i>imports</span>
+      <span><i class="sw call"></i>calls made</span>
+    </div>
   </section>
 
 </main>

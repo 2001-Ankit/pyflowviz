@@ -28,6 +28,10 @@
 
 * { box-sizing: border-box; }
 
+/* An explicit `display` beats the browser default for [hidden], so anything
+   laid out with flex would stay visible when hidden. Settle it once. */
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
   margin: 0;
@@ -572,6 +576,50 @@ select.btn { appearance: none; padding-right: 22px; }
   pointer-events: none;
 }
 .gedge-label.taken { fill: #7fbaff; }
+
+/* ---------------------------------------------------------- project map */
+
+.map-legend {
+  flex: none;
+  display: flex;
+  gap: 14px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.map-legend span { display: flex; align-items: center; gap: 5px; }
+.map-legend .sw { width: 11px; height: 9px; border-radius: 2px; display: inline-block; }
+.sw.ran  { background: #23303d; border: 1px solid #4f6f93; }
+.sw.dead { background: transparent; border: 1px dashed #46545f; }
+.sw.imp  { height: 0; border-top: 1.5px solid #46545f; border-radius: 0; }
+.sw.call { height: 0; border-top: 2px solid var(--accent); border-radius: 0; }
+
+.mnode { fill: var(--bg-raised); stroke: #35414d; stroke-width: 1.1; }
+.mnode.ran { fill: #23303d; stroke: #4f6f93; }
+.mnode.dead { fill: transparent; stroke: #46545f; stroke-dasharray: 4 3; }
+.mnode.entry { stroke: var(--accent); stroke-width: 2; }
+.mnode-group { cursor: pointer; }
+.mnode-group:hover .mnode { stroke: var(--accent); }
+
+.mlabel {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  fill: var(--text);
+  pointer-events: none;
+}
+.mnode-group.dead .mlabel { fill: var(--text-faint); }
+.msub {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  fill: var(--text-faint);
+  pointer-events: none;
+}
+.msub.partial { fill: var(--amber); }
+
+.medge { fill: none; stroke: #46545f; stroke-width: 1.1; stroke-dasharray: 3 3; }
+.mcall { fill: none; stroke: var(--accent); stroke-width: 1.9; }
+.mcall-label { font-family: var(--mono); font-size: 8.5px; fill: #7fbaff; pointer-events: none; }
 
 /* ---------------------------------------------------------- flow */
 

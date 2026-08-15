@@ -79,6 +79,24 @@ pystepflow main.py --project --exclude "*/legacy/*"  # skip a corner of the tree
 pystepflow main.py --project --trace-imports         # include import-time code
 ```
 
+### The project map
+
+Project mode adds a third tab on the right: every module in the project, laid
+out by how far it sits from the entry point, with this run painted on top.
+
+- Modules that ran are filled in and show `2/3 fn · 14 steps`.
+- Modules that never ran are dashed and greyed, with their function count —
+  `2 fn never ran`.
+- Grey dashed arrows are **imports** (static, from the source).
+- Blue arrows are **calls that actually happened**, with counts. Importing a
+  module says nothing about whether you ever call into it, so these are drawn
+  separately.
+
+That difference is the point: dead modules, unused functions and unexercised
+paths are visible next to the code that did run. Clicking a module opens its
+source in the code panel — including modules that never executed, which are
+fetched from disk on demand.
+
 Two things worth knowing:
 
 - **`--include` matters on a large codebase.** Tracing is capped at 5000 steps;

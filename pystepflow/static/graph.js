@@ -250,5 +250,96 @@ function fitZoom(graph, containerWidth) {
   return Math.max(0.35, Math.min(1.25, (containerWidth - 24) / graph.width));
 }
 
-return { pickGraph, computeExecution, render, fitZoom };
+/* ---------------------------------------------------------------- *
+ * Project map: every module, and what this run touched.
+ * ---------------------------------------------------------------- */
+
+function mapEdgePath(a, b) {
+  // Modules are laid out in rows, so edges normally run downwards. Edges that
+  // go up or sideways (a cycle, or a sibling import) bow out to stay readable.
+  const sx = a.x + a.w / 2, sy = a.y + a.h;
+  const tx = b.x + b.w / 2, ty = b.y;
+
+  if (ty > sy) {
+    const bend = Math.max(16, (ty - sy) / 2);
+    return "M " + sx + " " + sy + " C " + sx + " " + (sy + bend) + ", " +
+           tx + " " + (ty - bend) + ", " + tx + " " + ty;
+  }
+  const sideY = a.y + a.h / 2, endY = b.y + b.h / 2;
+  const out = sx < tx ? a.x + a.w : a.x;
+  const into = sx < tx ? b.x : b.x + b.w;
+  const bow = (sx < tx ? 1 : -1) * 26;
+  return "M " + out + " " + sideY + " C " + (out + bow) + " " + sideY + ", " +
+         (into - bow) + " " + endY + ", " + into + " " + endY;
+}
+
+function renderMap(map, currentFile, zoom) {
+  if (!map || !map.modules || !map.modules.length) {
+    return '<div class="graph-empty">No project map — run in project mode to build one.</div>';
+  }
+
+  const byName = new Map(map.modules.map((m) => [m.name, m]));
+  const parts = [];
+
+  (map.edges || []).forEach((edge) => {
+    const a = byName.get(edge.from), b = byName.get(edge.to);
+    if (a && b) parts.push('<path class="medge" d="' + mapEdgePath(a, b) +
+                           '" marker-end="url(#mtip)"/>');
+  });
+
+  // Calls observed at runtime. Importing a module says nothing about whether
+  // you ever call into it, so these are drawn separately from import edges.
+  (map.calls || []).forEach((call) => {
+    const a = byName.get(call.from), b = byName.get(call.to);
+    if (!a || !b) return;
+    parts.push('<path class="mcall" d="' + mapEdgePath(a, b) +
+               '" marker-end="url(#mtip-on)"/>');
+    parts.push('<text class="mcall-label" x="' + ((a.x + a.w / 2 + b.x + b.w / 2) / 2 + 5) +
+               '" y="' + ((a.y + a.h + b.y) / 2) + '">×' + call.count + "</text>");
+  });
+
+  map.modules.forEach((module) => {
+    const dead = !module.ran;
+    const ran = module.ran_functions ? module.ran_functions.length : 0;
+    const total = module.functions ? module.functions.length : 0;
+    const partial = ran > 0 && ran < total;
+
+    let classes = "mnode" + (dead ? " dead" : " ran") + (module.is_entry ? " entry" : "");
+    if (module.file === currentFile) classes += " current";
+
+    const label = module.name.length > 30 ? module.name.slice(0, 29) + "…" : module.name;
+    const sub = dead
+      ? (total ? total + " fn never ran" : "never ran")
+      : ran + "/" + total + " fn · " + module.steps + " steps";
+
+    parts.push(
+      '<g class="mnode-group' + (dead ? " dead" : "") + '" data-file="' +
+        esc(module.file) + '" data-name="' + esc(module.name) + '">' +
+      '<title>' + esc(module.file) + "</title>" +
+      '<rect class="' + classes + '" x="' + module.x + '" y="' + module.y +
+        '" width="' + module.w + '" height="' + module.h + '" rx="6"/>' +
+      '<text class="mlabel" x="' + (module.x + module.w / 2) + '" y="' +
+        (module.y + 16) + '" text-anchor="middle">' + esc(label) + "</text>" +
+      '<text class="msub' + (partial ? " partial" : "") + '" x="' +
+        (module.x + module.w / 2) + '" y="' + (module.y + 29) +
+        '" text-anchor="middle">' + esc(sub) + "</text>" +
+      "</g>"
+    );
+  });
+
+  const markers =
+    '<defs>' +
+    '<marker id="mtip" markerWidth="7" markerHeight="7" refX="6.2" refY="2.6" orient="auto">' +
+    '<path d="M0,0 L6,2.6 L0,5.2 z" fill="#46545f"/></marker>' +
+    '<marker id="mtip-on" markerWidth="7" markerHeight="7" refX="6.2" refY="2.6" orient="auto">' +
+    '<path d="M0,0 L6,2.6 L0,5.2 z" fill="#4d9fff"/></marker>' +
+    "</defs>";
+
+  return '<svg class="gsvg" width="' + Math.round(map.width * zoom) +
+    '" height="' + Math.round(map.height * zoom) +
+    '" viewBox="0 0 ' + map.width + " " + map.height + '">' +
+    markers + parts.join("") + "</svg>";
+}
+
+return { pickGraph, computeExecution, render, fitZoom, renderMap };
 })();

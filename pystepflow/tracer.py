@@ -587,7 +587,23 @@ class Tracer:
             "sources": self._sources,
             "entry": self._entry_key,
             "files": sorted(self._sources),
+            "map": self._project_map(),
         }
+
+    def _project_map(self):
+        """The static module graph, with this run painted onto it."""
+        if not self.project_mode:
+            return None
+        try:
+            try:
+                from . import projectmap
+            except ImportError:
+                import projectmap
+            built = projectmap.build_map(
+                self.project_root, is_wanted=self._is_user_file, entry=self.entry)
+            return projectmap.overlay(built, self.steps)
+        except Exception:
+            return None      # a missing map must never cost you the trace
 
     def _graphs(self):
         """Flowcharts for the flow-graph view. Never fatal to a trace."""

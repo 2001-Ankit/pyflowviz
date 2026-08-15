@@ -158,7 +158,7 @@
   <h1>pystepflow</h1>
   <p class="lede">Step through Python code in your browser: call stack, variables,
      heap objects, and a live flow graph.</p>
-  <p class="meta">Version 1.1.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
+  <p class="meta">Version 1.2.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
      &nbsp;·&nbsp; github.com/2001-Ankit/pystepflow</p>
 </div>
 
@@ -342,6 +342,43 @@ pystepflow main.py --project --trace-imports          # include import-time code
       server.</strong> If the project uses a virtualenv, start pystepflow from
       inside it, or the entry script will fail on its first import.</li>
 </ul>
+
+<h3>The project map</h3>
+
+<p>Project mode adds a third tab on the right: every module in the project,
+arranged by distance from the entry point along its imports, with the run
+painted on top. It is built from <code>ast</code> alone, so it includes code
+that never executed — which is the reason it exists.</p>
+
+<table>
+<tr><th>Drawn as</th><th>Means</th></tr>
+<tr><td>Filled box, <code>2/3 fn · 14 steps</code></td><td>The module ran; how many of its functions did, and how much of the trace happened inside it</td></tr>
+<tr><td>Dashed grey box, <code>2 fn never ran</code></td><td>The module exists but this run never touched it</td></tr>
+<tr><td>Accent border</td><td>The entry point</td></tr>
+<tr><td>Grey dashed arrow</td><td>An <strong>import</strong>, resolved statically from the source</td></tr>
+<tr><td>Blue arrow with <code>×N</code></td><td>A <strong>call that actually happened</strong>, observed in the trace</td></tr>
+</table>
+
+<p>Import edges and call edges are deliberately separate. Importing a module
+says nothing about whether you ever call into it, and the gap between the two
+is often the interesting part — a dependency you carry but never exercise.</p>
+
+<p>Amber function counts mark partial coverage: some of the module's functions
+ran and some did not. Clicking a module opens its source in the code panel,
+fetching it from disk when the module never ran and therefore has no source in
+the trace.</p>
+
+<p>Only imports that resolve to a file inside the project are drawn. Third-party
+imports are dropped rather than shown as dangling nodes, so the map stays a
+picture of your code. Modules the entry never reaches are placed in a final row
+rather than hidden — an unreachable module is worth seeing.</p>
+
+<div class="callout note">
+<p><strong>Static analysis in Python is approximate.</strong> Import edges are
+reliable, but a module reached only through <code>importlib</code>, a plugin
+registry, or a dynamic <code>__import__</code> will not appear as an edge. Where
+the static picture and the trace disagree, the trace is the ground truth.</p>
+</div>
 
 <h3>What a cross-module stack looks like</h3>
 <p>Each frame carries its own file, so a stack can span modules:</p>
@@ -749,15 +786,16 @@ than corrupting the response.</p>
 <h2>15. Project layout</h2>
 
 <div class="tree">pystepflow/
-├── __init__.py      public API: trace_code, serve, main
+├── __init__.py      public API: trace_code, trace_project, serve, main
 ├── tracer.py        sys.settrace snapshots → JSON, secret redaction
 ├── cfg.py           ast → laid-out flowcharts
+├── projectmap.py    ast → module graph, plus the run painted onto it
 ├── server.py        http.server, /api/trace, subprocess isolation
 └── static/
     ├── index.html   layout and panels
     ├── style.css    the whole visual design
     ├── app.js       stepping, stack/heap rendering, reference arrows
-    ├── graph.js     flow-graph SVG and execution overlay
+    ├── graph.js     flow-graph and project-map SVG, execution overlay
     └── examples.js  the eight built-in programs</div>
 
 <p>No build step. The frontend is three plain files loaded directly by the
@@ -787,7 +825,7 @@ literally <code>__token__</code> and the password is the token.</p>
       <pre><code>python -m twine check dist/*</code></pre></li>
   <li>Confirm the static files are bundled. They are not Python and are the
       easiest thing to lose:
-      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pystepflow-1.1.0-py3-none-any.whl').namelist()))"</code></pre></li>
+      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pystepflow-1.2.0-py3-none-any.whl').namelist()))"</code></pre></li>
   <li>Rehearse on TestPyPI, then install from it into a clean virtual
       environment and actually run the command:
       <pre><code>python -m twine upload --repository testpypi dist/*
@@ -795,8 +833,8 @@ pip install -i https://test.pypi.org/simple/ pystepflow</code></pre></li>
   <li>Publish:
       <pre><code>python -m twine upload dist/*</code></pre></li>
   <li>Tag the release:
-      <pre><code>git tag -a v1.1.0 -m "v1.1.0"
-git push origin v1.1.0</code></pre></li>
+      <pre><code>git tag -a v1.2.0 -m "v1.2.0"
+git push origin v1.2.0</code></pre></li>
 </ol>
 
 <div class="callout warn">
@@ -847,7 +885,7 @@ fix it. That is why step 6 is worth the extra few minutes.</p>
 </section>
 
 <footer>
-pystepflow 1.1.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pystepflow<br>
+pystepflow 1.2.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pystepflow<br>
 Generated from <code>docs/documentation.html</code>.
 </footer>
 

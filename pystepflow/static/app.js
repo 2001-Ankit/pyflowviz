@@ -22,6 +22,7 @@ const el = {
   fileInput: $("fileInput"), exampleSelect: $("exampleSelect"),
   timeline: $("timeline"), counter: $("counter"), speedSelect: $("speedSelect"),
   playBtn: $("playBtn"), toast: $("toast"),
+  map: $("map"), mapTab: $("mapTab"), mapLegend: $("mapLegend"),
   graph: $("graph"), graphSelect: $("graphSelect"), graphToolbar: $("graphToolbar"),
   followChk: $("followChk"), zoomIn: $("zoomIn"), zoomOut: $("zoomOut"), zoomFit: $("zoomFit"),
   nav: {
@@ -471,6 +472,61 @@ function renderGraph(step) {
   }
 }
 
+/* ================================================================== *
+ * Project map — every module, and what this run touched.
+ * ================================================================== */
+
+function renderMap() {
+  if (state.tab !== "map") return;
+  const step = state.steps[state.index];
+  const map = state.trace && state.trace.map;
+  const zoom = state.zoom ||
+    (map ? window.FlowGraph.fitZoom(map, el.map.clientWidth) : 1);
+  el.map.innerHTML = window.FlowGraph.renderMap(map, fileForStep(step), zoom);
+}
+
+/**
+ * Open a module from the map. Files that never ran have no source in the
+ * trace, so fetch them from the workspace on demand — being able to read code
+ * that did not execute is most of the point of the map.
+ */
+async function openModuleFile(file) {
+  if (!file) return;
+  if (state.sources[file] === undefined) {
+    try {
+      const response = await fetch("/api/open?path=" + encodeURIComponent(file));
+      const data = await response.json();
+      if (!data || typeof data.code !== "string") {
+        return toast((data && data.message) || "Could not open " + file, true);
+      }
+      state.sources[file] = data.code;
+      if (!state.files.includes(file)) {
+        state.files = state.files.concat([file]).sort();
+        fillFileSelect();
+      }
+    } catch (err) {
+      return toast("Could not open " + file + ": " + err.message, true);
+    }
+  }
+  state.pinnedFile = file;
+  showFile(file);
+  el.fileSelect.value = file;
+  toast(file + " — pinned. Pick the executing file again to resume following.");
+}
+
+/** The panel header describes whichever view is showing. */
+function updateMeta() {
+  const map = state.trace && state.trace.map;
+  if (state.tab === "map" && map) {
+    const dead = map.modules.length - map.ran_count;
+    el.flowMeta.textContent = map.modules.length + " modules · " +
+      map.ran_count + " ran" + (dead ? " · " + dead + " did not" : "");
+  } else if (state.flowCalls !== undefined) {
+    el.flowMeta.textContent = state.flowCalls +
+      " call" + (state.flowCalls === 1 ? "" : "s");
+  }
+}
+
 function setTab(tab) {
   state.tab = tab;
   document.querySelectorAll(".tab").forEach((node) =>
@@ -478,7 +534,12 @@ function setTab(tab) {
   el.graph.hidden = tab !== "graph";
   el.graphToolbar.hidden = tab !== "graph";
   el.flow.hidden = tab !== "tree";
+  el.map.hidden = tab !== "map";
+  el.mapLegend.hidden = tab !== "map";
+  state.zoom = null;                       // each view fits itself
+  updateMeta();
   if (state.steps.length) renderStep();
+  else if (tab === "map") renderMap();
 }
 
 function setZoom(delta) {
@@ -499,6 +560,7 @@ function renderStep() {
   renderOutput(step);
   renderFlow();
   renderGraph(step);
+  renderMap();
   drawArrows();
 
   el.counter.textContent = (state.index + 1) + " / " + state.steps.length;
@@ -544,8 +606,9 @@ function buildFlow() {
   });
 
   state.flowNodes = nodes;
-  el.flowMeta.textContent = nodes.length - 1 + " call" + (nodes.length === 2 ? "" : "s") +
-                            (truncated ? " (truncated)" : "");
+  state.flowCalls = nodes.length - 1;
+  el.flowMeta.textContent = state.flowCalls + " call" +
+    (state.flowCalls === 1 ? "" : "s") + (truncated ? " (truncated)" : "");
 
   const html = [];
   (function walk(node) {
@@ -563,6 +626,7 @@ function buildFlow() {
 }
 
 function renderFlow() {
+  if (state.tab !== "tree") return;
   const i = state.index;
   let active = null;
   el.flow.querySelectorAll(".flow-node").forEach((node) => {
@@ -710,6 +774,11 @@ async function run() {
     fillGraphSelect();
     fillFileSelect();
     showFile(result.entry || state.files[0]);
+
+    // The project map only exists for a project-mode run.
+    el.mapTab.hidden = !result.map;
+    if (!result.map && state.tab === "map") setTab("graph");
+    updateMeta();
 
     if (!state.steps.length) {
       setMode("edit");
@@ -878,7 +947,11 @@ function wire() {
 
     // Clicking a box in the flow graph jumps to when that line ran.
     const box = event.target.closest(".gnode-group");
-    if (box) { stopPlaying(); jumpToLine(+box.dataset.line); }
+    if (box) { stopPlaying(); jumpToLine(+box.dataset.line); return; }
+
+    // Clicking a module in the project map opens its source.
+    const module = event.target.closest(".mnode-group");
+    if (module) { stopPlaying(); openModuleFile(module.dataset.file); }
   });
 
   el.fileInput.addEventListener("change", (event) => {
@@ -959,12 +1032,14 @@ async function boot() {
 
   if (!loaded) loadCode(window.EXAMPLES[0].code, "fibonacci.py");
 
-  // #run traces immediately; #run@40 also jumps to that step. Handy for
-  // bookmarking a preloaded file, or pointing someone at one exact moment.
-  const deepLink = /^#run(?:@(\d+))?$/.exec(location.hash);
+  // #run traces immediately; #run@40 also jumps to that step, and a trailing
+  // :graph / :tree / :map picks the right-hand view. Handy for bookmarking a
+  // preloaded file, or pointing someone at one exact moment.
+  const deepLink = /^#run(?:@(\d+))?(?::(graph|tree|map))?$/.exec(location.hash);
   if (deepLink) {
     await run();
     if (deepLink[1]) goTo(+deepLink[1] - 1);
+    if (deepLink[2]) setTab(deepLink[2]);
   }
 }
 
