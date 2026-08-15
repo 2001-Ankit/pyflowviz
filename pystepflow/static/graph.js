@@ -22,7 +22,15 @@ function pickGraph(graphs, step) {
   if (!graphs || !graphs.length || !step) return null;
   const frame = step.stack[step.stack.length - 1];
   const name = frame ? frame.func : "<module>";
-  const candidates = graphs.filter((g) => g.name === name);
+  const file = (frame && frame.file) || step.file;
+
+  let candidates = graphs.filter((g) => g.name === name);
+  // Two modules can each define a function of the same name, so the file has
+  // to match as well once a project spans several of them.
+  if (file && candidates.length > 1) {
+    const sameFile = candidates.filter((g) => g.file === file);
+    if (sameFile.length) candidates = sameFile;
+  }
   if (!candidates.length) return graphs[0];
   if (candidates.length === 1) return candidates[0];
   // Same name defined more than once (two methods called __init__, say):

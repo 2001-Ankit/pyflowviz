@@ -21,10 +21,10 @@ From Python::
     serve(port=8000)             # start the web UI
 """
 
-from .tracer import trace_code, Tracer
+from .tracer import trace_code, trace_project, Tracer
 
-__version__ = "1.0.0"
-__all__ = ["trace_code", "Tracer", "serve", "main"]
+__version__ = "1.1.0"
+__all__ = ["trace_code", "trace_project", "Tracer", "serve", "main"]
 
 
 def serve(port=8000, host="127.0.0.1", file=None, workspace=None,

@@ -18,13 +18,25 @@ take the server down)::
     echo '{"code": "...", "stdin": ""}' | python -m pystepflow.tracer
 """
 
+import fnmatch
 import io
 import json
+import os
+import runpy
 import sys
 import traceback
 
 FILENAME = "<user_code>"
 RESULT_MARKER = "\n@@TRACE_RESULT@@\n"
+
+# Directories never counted as "your code", even when they sit inside the
+# project root. Without these, tracing a project descends into its own
+# virtualenv and drowns in library internals.
+DEFAULT_EXCLUDES = (
+    "*/site-packages/*", "*/dist-packages/*", "*/.venv/*", "*/venv/*",
+    "*/env/*", "*/__pycache__/*", "*/node_modules/*", "*/.git/*",
+    "*/.tox/*", "*/build/*", "*/dist/*",
+)
 
 # Safety limits. Tuned so a teaching-sized program traces instantly while a
 # runaway loop stops rather than eating all memory.
@@ -94,12 +106,34 @@ class _StepLimit(Exception):
 
 
 class Tracer:
-    def __init__(self, code, stdin="", max_steps=MAX_STEPS, redact=True):
+    def __init__(self, code=None, stdin="", max_steps=MAX_STEPS, redact=True,
+                 entry=None, project_root=None, include=None, exclude=None,
+                 trace_imports=False):
         # Editors on Windows often save a UTF-8 BOM, which compile() rejects.
-        self.code = code.lstrip("﻿")
+        self.code = (code or "").lstrip("﻿")
         self.stdin = stdin
         self.max_steps = max_steps
         self.redact = redact
+
+        # ---- project mode -------------------------------------------------
+        # With an entry script we trace every file under the project root
+        # instead of a single source string, so calls between your own modules
+        # are stepped into rather than skipped over.
+        self.entry = os.path.abspath(entry) if entry else None
+        if project_root:
+            self.project_root = os.path.abspath(project_root)
+        elif self.entry:
+            self.project_root = os.path.dirname(self.entry)
+        else:
+            self.project_root = None
+        self.include = list(include or [])
+        self.exclude = list(exclude or []) + list(DEFAULT_EXCLUDES)
+        self.trace_imports = trace_imports
+
+        self._file_cache = {}      # abs path -> is it ours?
+        self._file_keys = {}       # abs path -> short key shown in the UI
+        self._sources = {}         # short key -> source text
+        self._entry_key = None
 
         self.steps = []
         self.error = None
@@ -258,8 +292,88 @@ class Tracer:
             self._next_frame_id += 1
         return self._frame_ids[key]
 
+    # ------------------------------------------------------------------
+    # Which files count as "your code"
+    # ------------------------------------------------------------------
+
+    @property
+    def project_mode(self):
+        return self.entry is not None
+
+    def _is_user_file(self, path):
+        """True when a file is part of the program being visualised.
+
+        This is the whole boundary of the tracer. In single-snippet mode it is
+        one virtual filename; in project mode it is everything under the
+        project root that is not a dependency.
+        """
+        if not self.project_mode:
+            return path == FILENAME
+
+        cached = self._file_cache.get(path)
+        if cached is not None:
+            return cached
+
+        verdict = self._classify(path)
+        self._file_cache[path] = verdict
+        return verdict
+
+    def _classify(self, path):
+        if not path or path.startswith("<"):
+            return False              # <frozen importlib>, <string>, and friends
+        try:
+            full = os.path.abspath(path)
+        except (OSError, ValueError):
+            return False
+        if not full.lower().endswith(".py"):
+            return False
+
+        root = os.path.normcase(self.project_root)
+        if not os.path.normcase(full).startswith(root + os.sep) and \
+                os.path.normcase(full) != os.path.normcase(self.entry):
+            return False
+
+        posix = full.replace(os.sep, "/")
+        for pattern in self.exclude:
+            if fnmatch.fnmatch(posix, pattern):
+                return False
+        if self.include:
+            relative = os.path.relpath(full, self.project_root).replace(os.sep, "/")
+            if not any(fnmatch.fnmatch(relative, p) or fnmatch.fnmatch(posix, p)
+                       for p in self.include):
+                return False
+        return True
+
+    def _file_key(self, path):
+        """Short, stable, display-friendly name for a traced file."""
+        key = self._file_keys.get(path)
+        if key is not None:
+            return key
+
+        if not self.project_mode:
+            key = "main.py"
+        else:
+            try:
+                key = os.path.relpath(path, self.project_root).replace(os.sep, "/")
+            except ValueError:
+                key = os.path.basename(path)
+
+        self._file_keys[path] = key
+        if key not in self._sources:
+            self._sources[key] = self._read_source(path)
+        return key
+
+    def _read_source(self, path):
+        if not self.project_mode:
+            return self.code
+        try:
+            with open(path, "r", encoding="utf-8-sig") as handle:
+                return handle.read()
+        except OSError:
+            return ""
+
     def _is_user_frame(self, frame):
-        return frame is not None and frame.f_code.co_filename == FILENAME
+        return frame is not None and self._is_user_file(frame.f_code.co_filename)
 
     def _encode_frame(self, frame, is_global):
         names = []
@@ -293,18 +407,26 @@ class Tracer:
             "fid": 0 if is_global else self._frame_id(frame),
             "func": "<module>" if is_global else frame.f_code.co_name,
             "line": frame.f_lineno,
+            "file": self._file_key(frame.f_code.co_filename),
             "is_global": is_global,
             "vars": variables,
         }
 
     def _stack(self, frame):
-        """Frames from the module level down to the currently executing one."""
+        """Frames from the outermost traced frame down to the current one.
+
+        The chain stops at the first frame that is not ours, so a callback
+        invoked from library code (a ``sorted`` key function, say) shows only
+        the part of the stack that belongs to the program.
+        """
         chain = []
         while self._is_user_frame(frame):
             chain.append(frame)
             frame = frame.f_back
         chain.reverse()
-        return [self._encode_frame(f, i == 0) for i, f in enumerate(chain)]
+        # Module scope is decided per frame, not by position: in project mode
+        # the outermost traced frame is not necessarily a module body.
+        return [self._encode_frame(f, f.f_code.co_name == "<module>") for f in chain]
 
     # ------------------------------------------------------------------
     # Tracing
@@ -320,6 +442,7 @@ class Tracer:
             "event": event,
             "line": frame.f_lineno,
             "func": stack[-1]["func"] if stack else "<module>",
+            "file": self._file_key(frame.f_code.co_filename),
             "depth": len(stack),
             "stack": stack,
             "heap": self._heap,
@@ -338,13 +461,24 @@ class Tracer:
         return min(len(self._out.getvalue()), MAX_OUTPUT)
 
     def _trace(self, frame, event, arg):
-        if frame.f_code.co_filename != FILENAME:
-            return None  # never step into library code
+        code = frame.f_code
+        if not self._is_user_file(code.co_filename):
+            return None  # never step into library or dependency code
+
+        # Importing a module runs its whole body: class and function
+        # definitions, constants, decorators. That is setup, not the flow you
+        # asked to see, and it is enormous -- importing a handful of modules
+        # costs tens of thousands of events. Skip those bodies unless asked.
+        if (self.project_mode and not self.trace_imports
+                and code.co_name == "<module>"
+                and os.path.abspath(code.co_filename) != self.entry):
+            return None
+
         if event not in ("call", "line", "return", "exception"):
             return self._trace
-        # The module body itself is reported as a 'call' at line 0. That is an
-        # artefact of exec(), not something the user wrote, so skip it.
-        if event == "call" and not self._is_user_frame(frame.f_back):
+        # A module body is reported as a 'call' at line 0, an artefact of how
+        # it is executed rather than something the user wrote.
+        if event == "call" and code.co_name == "<module>":
             return self._trace
         if len(self.steps) >= self.max_steps:
             raise _StepLimit()
@@ -356,6 +490,9 @@ class Tracer:
     # ------------------------------------------------------------------
 
     def run(self):
+        if self.project_mode:
+            return self._run(self._exec_project)
+
         try:
             compiled = compile(self.code, FILENAME, "exec")
         except SyntaxError as exc:
@@ -367,7 +504,19 @@ class Tracer:
             return self.result()
 
         env = {"__name__": "__main__", "__builtins__": __builtins__, "__file__": FILENAME}
+        return self._run(lambda: exec(compiled, env))
 
+    def _exec_project(self):
+        """Run the entry script the way ``python entry.py`` would."""
+        entry_dir = os.path.dirname(self.entry)
+        for path in (self.project_root, entry_dir):
+            if path and path not in sys.path:
+                sys.path.insert(0, path)
+        sys.argv = [self.entry]
+        self._entry_key = self._file_key(self.entry)
+        runpy.run_path(self.entry, run_name="__main__")
+
+    def _run(self, body):
         real_stdout, real_stderr, real_stdin = sys.stdout, sys.stderr, sys.stdin
         sys.stdout = sys.stderr = self._out
         sys.stdin = io.StringIO(self.stdin)
@@ -376,7 +525,7 @@ class Tracer:
         try:
             sys.settrace(self._trace)
             try:
-                exec(compiled, env)
+                body()
             finally:
                 sys.settrace(None)
         except _StepLimit:
@@ -384,16 +533,22 @@ class Tracer:
         except SystemExit:
             pass
         except BaseException as exc:
+            # Report the deepest frame that belongs to the program, so an
+            # exception raised inside a library is still blamed on the line of
+            # your code that led there.
             tb = exc.__traceback__
-            line = None
+            line = file_key = None
             while tb is not None:
-                if tb.tb_frame.f_code.co_filename == FILENAME:
+                path = tb.tb_frame.f_code.co_filename
+                if self._is_user_file(path):
                     line = tb.tb_lineno
+                    file_key = self._file_key(path)
                 tb = tb.tb_next
             self.error = {
                 "type": type(exc).__name__,
                 "message": str(exc),
                 "line": line,
+                "file": file_key,
                 "traceback": "".join(
                     traceback.format_exception_only(type(exc), exc)
                 ).strip(),
@@ -414,6 +569,10 @@ class Tracer:
     def result(self):
         output = self._out.getvalue()
         truncated = len(output) > MAX_OUTPUT
+
+        if not self.project_mode and not self._sources:
+            self._sources["main.py"] = self.code
+
         return {
             "steps": self.steps,
             "stdout": output[:MAX_OUTPUT],
@@ -422,6 +581,12 @@ class Tracer:
             "code": self.code,
             "step_count": len(self.steps),
             "graphs": self._graphs(),
+            # Project mode extras. The UI shows one file at a time and follows
+            # execution across them, so it needs every source that ran.
+            "mode": "project" if self.project_mode else "snippet",
+            "sources": self._sources,
+            "entry": self._entry_key,
+            "files": sorted(self._sources),
         }
 
     def _graphs(self):
@@ -433,19 +598,45 @@ class Tracer:
                 import cfg
             except ImportError:
                 return []
-        try:
-            return cfg.build_graphs(self.code)
-        except Exception:
-            return []
+
+        graphs = []
+        for key, source in self._sources.items():
+            if not source:
+                continue
+            try:
+                built = cfg.build_graphs(source)
+            except Exception:
+                continue
+            for graph in built:
+                graph["file"] = key
+            graphs.extend(built)
+        return graphs
 
 
 def trace_code(code, stdin="", max_steps=MAX_STEPS, redact=True):
-    """Trace ``code`` and return the JSON-serialisable result dictionary.
+    """Trace a single source string and return the result dictionary.
 
     ``redact`` masks values that look like API keys or passwords; pass False
     when you actually need to inspect them.
     """
     return Tracer(code, stdin=stdin, max_steps=max_steps, redact=redact).run()
+
+
+def trace_project(entry, project_root=None, stdin="", max_steps=MAX_STEPS,
+                  redact=True, include=None, exclude=None, trace_imports=False):
+    """Trace a real script, stepping across every module in the project.
+
+    ``entry`` is run as ``__main__``. Every ``.py`` file under
+    ``project_root`` (defaulting to the entry's directory) is traced, except
+    dependencies and anything matched by ``exclude``. Pass ``include`` globs to
+    narrow tracing to one subsystem, which is usually necessary on a large
+    codebase.
+    """
+    return Tracer(
+        entry=entry, project_root=project_root, stdin=stdin,
+        max_steps=max_steps, redact=redact, include=include, exclude=exclude,
+        trace_imports=trace_imports,
+    ).run()
 
 
 def _main():
@@ -456,12 +647,22 @@ def _main():
                    "steps": [], "stdout": ""}, sys.stdout)
         return
 
-    result = trace_code(
-        request.get("code", ""),
+    common = dict(
         stdin=request.get("stdin", ""),
         max_steps=int(request.get("max_steps", MAX_STEPS)),
         redact=bool(request.get("redact", True)),
     )
+    if request.get("mode") == "project" and request.get("entry"):
+        result = trace_project(
+            request["entry"],
+            project_root=request.get("project_root"),
+            include=request.get("include"),
+            exclude=request.get("exclude"),
+            trace_imports=bool(request.get("trace_imports")),
+            **common
+        )
+    else:
+        result = trace_code(request.get("code", ""), **common)
     # Written to the real stdout, which the parent process reads. The marker
     # lets the parent discard anything the traced program managed to write
     # directly to the underlying file descriptor.

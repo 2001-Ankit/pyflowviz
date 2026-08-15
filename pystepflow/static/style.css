@@ -131,6 +131,39 @@ select.btn { appearance: none; padding-right: 22px; }
   color: var(--text-faint);
 }
 
+.head-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.file-select {
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 5px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  max-width: 230px;
+}
+.file-select:hover { border-color: #33404e; }
+
+.project-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+}
+.project-toggle input { accent-color: var(--accent); margin: 0; }
+
+/* A frame from a file other than the one on screen. */
+.frame-head .frame-file {
+  color: var(--text-faint);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 130px;
+}
+.frame.foreign .frame-head { opacity: 0.82; }
+
 /* ---------------------------------------------------------- code */
 
 .code-wrap {

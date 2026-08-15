@@ -25,6 +25,10 @@
     <select id="exampleSelect" class="btn ghost" title="Load a built-in example">
       <option value="">Examples…</option>
     </select>
+    <label class="btn ghost project-toggle" id="projectToggle" hidden
+           title="Run the file from disk and step across every module in the project">
+      <input type="checkbox" id="projectChk"> whole project
+    </label>
     <button class="btn ghost" id="editBtn" title="Return to editing (Esc)">Edit</button>
     <button class="btn primary" id="runBtn" title="Trace the program (Ctrl+Enter)">
       <span id="runLabel">Visualize</span>
@@ -38,7 +42,10 @@
   <section class="panel code-panel">
     <div class="panel-head">
       <h2>Code</h2>
-      <div class="panel-head-meta" id="codeStatus">editing</div>
+      <div class="head-right">
+        <select id="fileSelect" class="file-select" title="File being shown" hidden></select>
+        <div class="panel-head-meta" id="codeStatus">editing</div>
+      </div>
     </div>
 
     <div class="code-wrap" id="codeWrap">

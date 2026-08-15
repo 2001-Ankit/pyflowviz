@@ -50,6 +50,45 @@ Your browser opens at <http://127.0.0.1:8000>. Press **Visualize** (or
 You can also load code straight from the UI with **Open file**, or pick one of
 the built-in examples from the **Examples…** menu.
 
+## Tracing a whole project
+
+By default only the file you are looking at is traced, so a call into another
+module of your own shows up as a single step. Pass `--project` to step across
+every module instead:
+
+```bash
+pystepflow main.py --project
+```
+
+`main.py` is then run from disk exactly as `python main.py` would run it, and
+every `.py` file under the project root is traced. The code panel follows
+execution from file to file, the call stack labels each frame with its module,
+and the flow graph resolves the right function even when two modules define the
+same name.
+
+Dependencies are excluded automatically — `site-packages`, `.venv`, `venv`,
+`__pycache__`, `node_modules`, `build`, `dist` and friends — even when they sit
+inside the project root. Module bodies are skipped as they are imported, since
+that is class and function definitions rather than the flow you asked to see;
+pass `--trace-imports` if you want them.
+
+```bash
+pystepflow main.py --project --root .            # project root, if not the entry's folder
+pystepflow main.py --project --include "services/*"  # narrow to one subsystem
+pystepflow main.py --project --exclude "*/legacy/*"  # skip a corner of the tree
+pystepflow main.py --project --trace-imports         # include import-time code
+```
+
+Two things worth knowing:
+
+- **`--include` matters on a large codebase.** Tracing is capped at 5000 steps;
+  a big program will hit that before it reaches what you care about. Narrow to
+  the subsystem you are studying.
+- **Edits in the browser are ignored in project mode.** The files on disk are
+  what run. Edit them in your editor and press Visualize again.
+- **Dependencies must be importable by the interpreter running the server.** If
+  your project uses a virtualenv, start pystepflow from inside it.
+
 ## Getting around
 
 | Control | Does |

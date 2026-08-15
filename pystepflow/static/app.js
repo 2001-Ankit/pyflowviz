@@ -18,6 +18,7 @@ const el = {
   frames: $("frames"), heap: $("heap"), arrows: $("arrows"),
   stateMeta: $("stateMeta"), flow: $("flow"), flowMeta: $("flowMeta"),
   runBtn: $("runBtn"), runLabel: $("runLabel"), editBtn: $("editBtn"),
+  fileSelect: $("fileSelect"), projectToggle: $("projectToggle"), projectChk: $("projectChk"),
   fileInput: $("fileInput"), exampleSelect: $("exampleSelect"),
   timeline: $("timeline"), counter: $("counter"), speedSelect: $("speedSelect"),
   playBtn: $("playBtn"), toast: $("toast"),
@@ -41,7 +42,15 @@ const state = {
   graphs: [],
   tab: "graph",     // "graph" | "tree"
   zoom: null,       // null means "fit to the panel"
-  pinnedGraph: null // index into state.graphs when "follow" is off
+  pinnedGraph: null,// index into state.graphs when "follow" is off
+
+  // Project mode: several files take part in one run, so the code panel shows
+  // whichever file is executing unless the user pins one.
+  sources: {},      // file key -> source text
+  files: [],
+  shownFile: null,  // the file currently rendered
+  pinnedFile: null, // set when the user picks from the dropdown
+  builtFiles: {}    // file key -> rendered HTML, so we tokenize each file once
 };
 
 /* ================================================================== *
@@ -150,14 +159,39 @@ function setMode(mode) {
   if (editing) { stopPlaying(); el.editor.focus(); }
 }
 
-function buildCodeView(source) {
+function renderSource(source) {
   const ctx = { triple: null };
-  el.codeView.innerHTML = source.split("\n").map((line, i) =>
+  return source.split("\n").map((line, i) =>
     '<div class="code-line" data-line="' + (i + 1) + '">' +
       '<span class="ln">' + (i + 1) + "</span>" +
       '<span class="src">' + (tokenizeLine(line, ctx) || "&nbsp;") + "</span>" +
     "</div>"
   ).join("");
+}
+
+/** Show a file in the code panel, tokenizing it only the first time. */
+function showFile(file) {
+  if (!file || state.shownFile === file) return;
+  if (state.builtFiles[file] === undefined) {
+    state.builtFiles[file] = renderSource(state.sources[file] || "");
+  }
+  el.codeView.innerHTML = state.builtFiles[file];
+  state.shownFile = file;
+  if (el.fileSelect.value !== file) el.fileSelect.value = file;
+}
+
+function fillFileSelect() {
+  const many = state.files.length > 1;
+  el.fileSelect.hidden = !many;
+  if (!many) return;
+  el.fileSelect.innerHTML = state.files.map((f) =>
+    '<option value="' + esc(f) + '">' + esc(f) + "</option>").join("");
+}
+
+/** Which file the code panel should display for this step. */
+function fileForStep(step) {
+  if (state.pinnedFile) return state.pinnedFile;
+  return (step && step.file) || state.files[0] || null;
 }
 
 /* ================================================================== *
@@ -274,10 +308,18 @@ function renderFrames(step) {
         }).join("")
       : '<div class="empty-note">no variables yet</div>';
 
-    return '<div class="frame' + (active ? " active" : "") + '">' +
+    // In a multi-file run, say which module each frame lives in.
+    const shown = state.shownFile;
+    const foreign = state.files.length > 1 && frame.file && frame.file !== shown;
+    const where = state.files.length > 1 && frame.file
+      ? '<span class="frame-file" title="' + esc(frame.file) + '">' + esc(frame.file) + "</span>"
+      : "";
+
+    return '<div class="frame' + (active ? " active" : "") +
+      (foreign ? " foreign" : "") + '">' +
       '<div class="frame-head"><span>' + esc(frame.func) +
-      (frame.is_global ? "" : "()") + '</span><span class="at">line ' + frame.line +
-      "</span></div>" + rows + "</div>";
+      (frame.is_global ? "" : "()") + "</span>" + where +
+      '<span class="at">line ' + frame.line + "</span></div>" + rows + "</div>";
   });
 
   // Innermost frame on top reads better next to the stack metaphor.
@@ -310,15 +352,23 @@ function renderOutput(step) {
 }
 
 function highlightCode(step) {
+  const file = fileForStep(step);
+  showFile(file);
+
   const lines = el.codeView.querySelectorAll(".code-line");
   lines.forEach((node) => { node.className = "code-line"; });
   if (!step) return;
 
-  // Lines of the frames that are waiting further up the stack.
+  // Lines of the frames that are waiting further up the stack — but only those
+  // belonging to the file on screen, since a stack can now span modules.
   step.stack.slice(0, -1).forEach((frame) => {
+    if ((frame.file || file) !== file) return;
     const node = el.codeView.querySelector('.code-line[data-line="' + frame.line + '"]');
     if (node) node.classList.add("parent");
   });
+
+  // The executing line only belongs on screen when we are showing its file.
+  if ((step.file || file) !== file) return;
 
   const current = el.codeView.querySelector('.code-line[data-line="' + step.line + '"]');
   if (!current) return;
@@ -380,8 +430,11 @@ function currentGraph(step) {
 }
 
 function fillGraphSelect() {
+  const many = state.files.length > 1;
   el.graphSelect.innerHTML = state.graphs.map((g, i) =>
-    '<option value="' + i + '">' + esc(g.signature) + " — line " + g.first_line + "</option>"
+    '<option value="' + i + '">' +
+    (many && g.file ? esc(g.file) + " · " : "") +
+    esc(g.signature) + "</option>"
   ).join("");
 }
 
@@ -548,8 +601,11 @@ function jumpToLine(line) {
   const frame = step.stack[step.stack.length - 1];
   const fid = frame ? frame.fid : 0;
 
+  const file = state.shownFile;
   const matches = (other, sameFrame) => {
     if (other.line !== line) return false;
+    // A line number alone is ambiguous once several files are in play.
+    if (file && other.file && other.file !== file) return false;
     if (!sameFrame) return true;
     const top = other.stack[other.stack.length - 1];
     return top && top.fid === fid;
@@ -626,10 +682,11 @@ async function run() {
   el.runLabel.textContent = "Tracing…";
 
   try {
+    const project = el.projectChk.checked;
     const response = await fetch("/api/trace", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code, stdin: el.stdinBox.value })
+      body: JSON.stringify({ code, stdin: el.stdinBox.value, project })
     });
     const result = await response.json();
 
@@ -640,9 +697,19 @@ async function run() {
     state.graphs = result.graphs || [];
     state.zoom = null;
     state.pinnedGraph = null;
-    fillGraphSelect();
 
-    buildCodeView(code);
+    // In project mode the sources come back from disk, one per module that ran.
+    state.sources = result.sources && Object.keys(result.sources).length
+      ? result.sources : { "main.py": code };
+    state.files = result.files && result.files.length
+      ? result.files : Object.keys(state.sources);
+    state.builtFiles = {};
+    state.shownFile = null;
+    state.pinnedFile = null;
+
+    fillGraphSelect();
+    fillFileSelect();
+    showFile(result.entry || state.files[0]);
 
     if (!state.steps.length) {
       setMode("edit");
@@ -666,6 +733,9 @@ async function run() {
 
     if (result.error) {
       toast(result.error.type + ": " + result.error.message, true);
+    } else if (result.mode === "project") {
+      toast(state.steps.length + " steps across " + state.files.length +
+            " files — the code panel follows execution between them.");
     } else {
       toast(state.steps.length + " steps traced — use ← → or press play.");
     }
@@ -690,8 +760,14 @@ function loadCode(code, name, stdin) {
   state.graphs = [];
   state.zoom = null;
   state.pinnedGraph = null;
+  state.sources = {};
+  state.files = [];
+  state.builtFiles = {};
+  state.shownFile = null;
+  state.pinnedFile = null;
   setMode("edit");
   syncGutter();
+  el.fileSelect.hidden = true;
   el.graphSelect.innerHTML = "";
   el.graph.innerHTML = '<div class="graph-empty">Press Visualize to chart the flow.</div>';
   el.frames.innerHTML = el.heap.innerHTML = el.flow.innerHTML = "";
@@ -707,6 +783,23 @@ function loadCode(code, name, stdin) {
 function wire() {
   el.runBtn.addEventListener("click", run);
   el.editBtn.addEventListener("click", () => setMode("edit"));
+
+  // Picking a file pins it; picking the executing file again resumes following.
+  el.fileSelect.addEventListener("change", () => {
+    const step = state.steps[state.index];
+    const executing = step && step.file;
+    state.pinnedFile = el.fileSelect.value === executing ? null : el.fileSelect.value;
+    if (state.steps.length) renderStep();
+    else showFile(el.fileSelect.value);
+  });
+
+  el.projectChk.addEventListener("change", () => {
+    el.codeStatus.textContent = el.projectChk.checked
+      ? "project mode — runs the file from disk" : "editing";
+    if (el.projectChk.checked) {
+      toast("Project mode runs the file on disk, so edits in this panel are ignored.");
+    }
+  });
 
   el.editor.addEventListener("input", syncGutter);
   el.editor.addEventListener("scroll", syncGutter);
@@ -853,6 +946,14 @@ async function boot() {
     if (data && data.code) {
       loadCode(data.code, data.name || "preloaded.py");
       loaded = true;
+    }
+    // The project toggle only makes sense with a real file on disk to run.
+    if (data && data.project_available) {
+      el.projectToggle.hidden = false;
+      el.projectChk.checked = !!data.project_default;
+      if (data.project_default) {
+        el.codeStatus.textContent = "project mode — runs the file from disk";
+      }
     }
   } catch (err) { /* no preload; fall through to the example */ }
 

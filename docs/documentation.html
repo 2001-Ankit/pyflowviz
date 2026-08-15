@@ -158,7 +158,7 @@
   <h1>pystepflow</h1>
   <p class="lede">Step through Python code in your browser: call stack, variables,
      heap objects, and a live flow graph.</p>
-  <p class="meta">Version 1.0.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
+  <p class="meta">Version 1.1.0 &nbsp;·&nbsp; MIT License &nbsp;·&nbsp; Ankit Rai
      &nbsp;·&nbsp; github.com/2001-Ankit/pystepflow</p>
 </div>
 
@@ -170,6 +170,7 @@
   <li>Installation</li>
   <li>Quick start</li>
   <li>Command-line reference</li>
+  <li>Tracing a whole project</li>
   <li>The interface, panel by panel</li>
   <li>Keyboard and navigation</li>
   <li>What it can and cannot trace</li>
@@ -273,6 +274,10 @@ file, or pointing a student at one exact moment.</p>
 <tr><td><code>-n, --no-browser</code></td><td>off</td><td>Do not launch a browser window</td></tr>
 <tr><td><code>-t, --timeout</code></td><td><code>15</code></td><td>Seconds a single trace may run before it is stopped</td></tr>
 <tr><td><code>--show-secrets</code></td><td>off</td><td>Do not mask values that look like API keys</td></tr>
+<tr><td><code>-P, --project</code></td><td>off</td><td>Trace every module in the project, not just one file</td></tr>
+<tr><td><code>--include</code></td><td>—</td><td>Only trace files matching this glob; repeatable</td></tr>
+<tr><td><code>--exclude</code></td><td>—</td><td>Never trace files matching this glob; repeatable</td></tr>
+<tr><td><code>--trace-imports</code></td><td>off</td><td>Also step through module bodies as they are imported</td></tr>
 </table>
 
 <pre><code>pystepflow                       # empty editor
@@ -284,8 +289,70 @@ pystepflow --show-secrets        # show real credential values
 pystepflow --no-browser          # headless / remote use</code></pre>
 </section>
 
+<section class="page-break">
+<h2>5. Tracing a whole project</h2>
+
+<p>By default the tracer's boundary is a single file: a call into another module
+of your own is executed but not stepped into, exactly like a call into
+<code>json</code>. On a real codebase that means most of the interesting flow
+escapes the visualization. <code>--project</code> moves the boundary from
+"this one file" to "this project".</p>
+
+<pre><code>pystepflow main.py --project</code></pre>
+
+<p>The entry script is run from disk exactly as <code>python main.py</code>
+would run it, and every <code>.py</code> file under the project root is traced.
+The code panel follows execution from file to file, each frame in the call
+stack is labelled with its module, and the flow graph resolves the correct
+function even when two modules define the same name.</p>
+
+<h3>What is excluded, and why it has to be</h3>
+
+<p>Dependencies are never traced, even when they live inside the project root —
+<code>site-packages</code>, <code>dist-packages</code>, <code>.venv</code>,
+<code>venv</code>, <code>env</code>, <code>__pycache__</code>,
+<code>node_modules</code>, <code>.git</code>, <code>.tox</code>,
+<code>build</code>, <code>dist</code>.</p>
+
+<p>Module bodies are also skipped as they are imported. That is not a detail:
+importing eleven standard-library modules costs about <strong>264,000 line
+events</strong>, some fifty times the entire step budget, before a single line
+of your own program runs. Import-time code is class and function definitions
+rather than the flow you asked to see. Pass <code>--trace-imports</code> if you
+genuinely want it.</p>
+
+<div class="callout note">
+<p><strong>Use <code>--include</code> on anything large.</strong> Tracing stops
+at <code>MAX_STEPS</code> (5000). A substantial program will hit that long
+before it reaches the part you care about, so narrow the trace to the subsystem
+you are studying.</p>
+</div>
+
+<pre><code>pystepflow main.py --project --root .                 # explicit project root
+pystepflow main.py --project --include "services/*"   # one subsystem only
+pystepflow main.py --project --exclude "*/legacy/*"   # skip part of the tree
+pystepflow main.py --project --trace-imports          # include import-time code</code></pre>
+
+<h3>Two practical constraints</h3>
+<ul>
+  <li><strong>Edits in the browser are ignored.</strong> Project mode runs the
+      files on disk. Edit in your own editor, then press Visualize again. The
+      code panel becomes a viewer rather than an editor.</li>
+  <li><strong>Dependencies must be importable by the interpreter running the
+      server.</strong> If the project uses a virtualenv, start pystepflow from
+      inside it, or the entry script will fail on its first import.</li>
+</ul>
+
+<h3>What a cross-module stack looks like</h3>
+<p>Each frame carries its own file, so a stack can span modules:</p>
+<pre><code>main.py              &lt;module&gt;      line 24
+main.py              process       line 16
+services/pricing.py  price_order   line 7
+services/pricing.py  discount      line 11   &lt;- executing</code></pre>
+</section>
+
 <section>
-<h2>5. The interface, panel by panel</h2>
+<h2>6. The interface, panel by panel</h2>
 
 <h3>Code</h3>
 <p>While editing, this is a plain textarea with line numbers. Once traced it
@@ -352,7 +419,7 @@ by that point, not the final output. Errors appear in red at the end.</p>
 </section>
 
 <section class="page-break">
-<h2>6. Keyboard and navigation</h2>
+<h2>7. Keyboard and navigation</h2>
 
 <table>
 <tr><th>Key</th><th>Action</th></tr>
@@ -374,7 +441,7 @@ your code.</p>
 </section>
 
 <section>
-<h2>7. What it can and cannot trace</h2>
+<h2>8. What it can and cannot trace</h2>
 
 <h3>Verified working</h3>
 <p>Each of these was tested end to end:</p>
@@ -409,7 +476,7 @@ your code.</p>
 </section>
 
 <section>
-<h2>8. GenAI and LLM code</h2>
+<h2>9. GenAI and LLM code</h2>
 
 <p>Agent loops are one of the best things to point this at, because the control
 flow is exactly what is hard to hold in your head. Verified against agent loops
@@ -448,7 +515,7 @@ still accumulates. Prefer tracing loop logic with a stub client over a
 </section>
 
 <section class="page-break">
-<h2>9. Security and privacy</h2>
+<h2>10. Security and privacy</h2>
 
 <div class="callout warn">
 <p><strong>This is a tracer, not a sandbox.</strong> Your code really executes —
@@ -502,7 +569,7 @@ value.</p>
 </section>
 
 <section>
-<h2>10. Limits and tuning</h2>
+<h2>11. Limits and tuning</h2>
 
 <p>These exist to keep the browser responsive. All are constants at the top of
 <code>pystepflow/tracer.py</code> except the timeout, which is a CLI flag.</p>
@@ -523,7 +590,7 @@ hits <code>MAX_STEPS</code> first and returns a clean error rather than hanging.
 </section>
 
 <section>
-<h2>11. Using it as a Python library</h2>
+<h2>12. Using it as a Python library</h2>
 
 <pre><code>from pystepflow import trace_code
 
@@ -541,6 +608,19 @@ print(result["graphs"][0]["nodes"])  # flowchart of the module</code></pre>
 <p>Traces a source string and returns the result dictionary described in the
 next section. Set <code>redact=False</code> to keep real credential values.</p>
 
+<h4>trace_project(entry, project_root=None, stdin="", max_steps=5000, redact=True, include=None, exclude=None, trace_imports=False)</h4>
+<p>Runs <code>entry</code> as <code>__main__</code> and traces every module
+under <code>project_root</code>, which defaults to the entry's directory. The
+result gains <code>sources</code> (one entry per file that ran),
+<code>files</code>, <code>entry</code>, and <code>mode == "project"</code>;
+every step and every frame gains a <code>file</code>.</p>
+
+<pre><code>from pystepflow import trace_project
+
+result = trace_project("main.py", include=["services/*"])
+print(result["files"])        # ['main.py', 'services/pricing.py', ...]
+print(result["steps"][30]["file"])</code></pre>
+
 <h4>serve(port=8000, host="127.0.0.1", file=None, workspace=None, open_browser=True, timeout=None, show_secrets=False)</h4>
 <p>Starts the web server. Blocks until interrupted.</p>
 
@@ -549,7 +629,7 @@ serve(port=8000, file="my_script.py", timeout=120)</code></pre>
 </section>
 
 <section class="page-break">
-<h2>12. How it works internally</h2>
+<h2>13. How it works internally</h2>
 
 <h3>The tracer</h3>
 <p><code>tracer.py</code> installs <code>sys.settrace</code> and records a
@@ -621,7 +701,7 @@ than corrupting the response.</p>
 </section>
 
 <section>
-<h2>13. Data formats</h2>
+<h2>14. Data formats</h2>
 
 <h4>Trace result</h4>
 <pre><code>{
@@ -666,7 +746,7 @@ than corrupting the response.</p>
 </section>
 
 <section class="page-break">
-<h2>14. Project layout</h2>
+<h2>15. Project layout</h2>
 
 <div class="tree">pystepflow/
 ├── __init__.py      public API: trace_code, serve, main
@@ -685,7 +765,7 @@ browser; editing them and reloading is the entire development loop.</p>
 </section>
 
 <section>
-<h2>15. Publishing a release</h2>
+<h2>16. Publishing a release</h2>
 
 <h3>Prerequisites</h3>
 <pre><code>pip install build twine</code></pre>
@@ -707,7 +787,7 @@ literally <code>__token__</code> and the password is the token.</p>
       <pre><code>python -m twine check dist/*</code></pre></li>
   <li>Confirm the static files are bundled. They are not Python and are the
       easiest thing to lose:
-      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pystepflow-1.0.0-py3-none-any.whl').namelist()))"</code></pre></li>
+      <pre><code>python -c "import zipfile; print('\n'.join(zipfile.ZipFile('dist/pystepflow-1.1.0-py3-none-any.whl').namelist()))"</code></pre></li>
   <li>Rehearse on TestPyPI, then install from it into a clean virtual
       environment and actually run the command:
       <pre><code>python -m twine upload --repository testpypi dist/*
@@ -715,8 +795,8 @@ pip install -i https://test.pypi.org/simple/ pystepflow</code></pre></li>
   <li>Publish:
       <pre><code>python -m twine upload dist/*</code></pre></li>
   <li>Tag the release:
-      <pre><code>git tag -a v1.0.0 -m "v1.0.0"
-git push origin v1.0.0</code></pre></li>
+      <pre><code>git tag -a v1.1.0 -m "v1.1.0"
+git push origin v1.1.0</code></pre></li>
 </ol>
 
 <div class="callout warn">
@@ -728,7 +808,7 @@ fix it. That is why step 6 is worth the extra few minutes.</p>
 </section>
 
 <section>
-<h2>16. Troubleshooting</h2>
+<h2>17. Troubleshooting</h2>
 
 <table>
 <tr><th>Symptom</th><th>Cause and fix</th></tr>
@@ -767,7 +847,7 @@ fix it. That is why step 6 is worth the extra few minutes.</p>
 </section>
 
 <footer>
-pystepflow 1.0.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pystepflow<br>
+pystepflow 1.1.0 — MIT License — Ankit Rai — github.com/2001-Ankit/pystepflow<br>
 Generated from <code>docs/documentation.html</code>.
 </footer>
 

@@ -46,11 +46,33 @@ PRELOAD_FILE = None
 WORKSPACE = None
 REDACT = True                 # mask values that look like API keys
 
+# Project mode: trace every module under the workspace, not just one file.
+PROJECT = False
+INCLUDE = []
+EXCLUDE = []
+TRACE_IMPORTS = False
 
-def run_trace(code, stdin="", timeout=None):
-    """Trace ``code`` in a child process and return the result dictionary."""
+
+def run_trace(code, stdin="", timeout=None, project=False):
+    """Trace in a child process and return the result dictionary.
+
+    With ``project`` set, the entry script configured on the command line is
+    run from disk and every module in the project is traced; otherwise the
+    ``code`` string is traced on its own.
+    """
     timeout = timeout or DEFAULT_TIMEOUT
-    payload = json.dumps({"code": code, "stdin": stdin, "redact": REDACT})
+    request = {"code": code, "stdin": stdin, "redact": REDACT}
+
+    if project and PRELOAD_FILE:
+        request.update({
+            "mode": "project",
+            "entry": PRELOAD_FILE,
+            "project_root": WORKSPACE,
+            "include": INCLUDE,
+            "exclude": EXCLUDE,
+            "trace_imports": TRACE_IMPORTS,
+        })
+    payload = json.dumps(request)
     try:
         proc = subprocess.run(
             [sys.executable, "-X", "utf8", os.path.join(BASE_DIR, "tracer.py")],
@@ -151,6 +173,7 @@ class Handler(BaseHTTPRequestHandler):
             request.get("code", ""),
             stdin=request.get("stdin", ""),
             timeout=float(request.get("timeout") or DEFAULT_TIMEOUT),
+            project=bool(request.get("project")),
         )
         self._send_json(200, result)
 
@@ -167,17 +190,26 @@ class Handler(BaseHTTPRequestHandler):
                        CONTENT_TYPES.get(ext, "application/octet-stream"))
 
     def _serve_preload(self):
+        # `project_available` tells the UI whether to offer the project toggle:
+        # it needs a real file on disk to use as an entry point.
+        info = {
+            "code": None,
+            "project_available": bool(PRELOAD_FILE),
+            "project_default": PROJECT,
+            "workspace": WORKSPACE,
+        }
         if not PRELOAD_FILE:
-            return self._send_json(200, {"code": None})
+            return self._send_json(200, info)
         try:
             with open(PRELOAD_FILE, "r", encoding="utf-8-sig") as handle:
-                return self._send_json(200, {
+                info.update({
                     "code": handle.read(),
                     "path": os.path.abspath(PRELOAD_FILE),
                     "name": os.path.basename(PRELOAD_FILE),
                 })
         except OSError as exc:
-            return self._send_json(200, {"code": None, "message": str(exc)})
+            info["message"] = str(exc)
+        return self._send_json(200, info)
 
     def _serve_open(self, query):
         """Load any .py file from the allowed workspace directory."""
@@ -207,6 +239,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main(argv=None):
     global PRELOAD_FILE, WORKSPACE, DEFAULT_TIMEOUT, REDACT
+    global PROJECT, INCLUDE, EXCLUDE, TRACE_IMPORTS
 
     parser = argparse.ArgumentParser(description="Python code visualizer server.")
     parser.add_argument("file", nargs="?", help="a .py file to preload in the editor")
@@ -222,10 +255,31 @@ def main(argv=None):
                              "(default %(default)s; raise it for slow API calls)")
     parser.add_argument("--show-secrets", action="store_true",
                         help="do not mask values that look like API keys")
+    parser.add_argument("-P", "--project", action="store_true",
+                        help="trace every module in the project, not just the "
+                             "one file (requires a file argument as the entry "
+                             "point)")
+    parser.add_argument("--include", action="append", metavar="GLOB",
+                        help="only trace files matching this glob, relative to "
+                             "the project root; repeatable. Recommended on a "
+                             "large codebase")
+    parser.add_argument("--exclude", action="append", metavar="GLOB",
+                        help="never trace files matching this glob; repeatable. "
+                             "Dependencies are excluded already")
+    parser.add_argument("--trace-imports", action="store_true",
+                        help="also step through module bodies as they are "
+                             "imported (very verbose)")
     args = parser.parse_args(argv)
 
     DEFAULT_TIMEOUT = args.timeout
     REDACT = not args.show_secrets
+    PROJECT = args.project
+    INCLUDE = args.include or []
+    EXCLUDE = args.exclude or []
+    TRACE_IMPORTS = args.trace_imports
+
+    if args.project and not args.file:
+        parser.error("--project needs a file argument to use as the entry point")
 
     if args.file:
         if not os.path.isfile(args.file):
@@ -245,6 +299,12 @@ def main(argv=None):
         print("  preloaded : %s" % PRELOAD_FILE)
     if WORKSPACE:
         print("  workspace : %s" % WORKSPACE)
+    if PROJECT:
+        print("  mode      : project (tracing every module under the workspace)")
+        if INCLUDE:
+            print("  include   : %s" % ", ".join(INCLUDE))
+        if EXCLUDE:
+            print("  exclude   : %s" % ", ".join(EXCLUDE))
     print("  timeout   : %gs per trace" % DEFAULT_TIMEOUT)
     if not REDACT:
         print("  secrets   : NOT masked (--show-secrets)")
